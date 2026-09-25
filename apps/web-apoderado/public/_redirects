@@ -1,0 +1,3 @@
+# Netlify: /i/<token> es una ruta "virtual" que sirve la misma index.html;
+# app.js lee el token de window.location.pathname (ver src/router.ts).
+/i/*  /index.html  200
