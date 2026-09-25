@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/lib/theme';
+import { colors, typography } from '@/lib/theme';
+import { Button, ErrorText, Field, Screen, Spacer } from '@/components/ui';
 
 // Login con email + contraseña. Para el piloto (5 transportistas) la
 // cuenta se la creamos nosotros a mano en el dashboard de Supabase — no
@@ -28,69 +29,48 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, padding: 24, paddingTop: 72, gap: 16 }}>
-      <View style={{ alignItems: 'center', marginBottom: 22 }}>
-        <Text style={{ fontSize: 54 }}>🚌</Text>
-        <Text style={{ fontFamily: 'System', fontSize: 34, fontWeight: '800', color: colors.text }}>
-          RutaSegura
-        </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted, fontWeight: '600' }}>
-          Transporte Escolar
-        </Text>
+    <Screen style={{ paddingTop: 72 }}>
+      <Spacer />
+      <View style={{ alignItems: 'center', gap: 8 }}>
+        <View
+          style={{
+            width: 74,
+            height: 74,
+            borderRadius: 22,
+            backgroundColor: colors.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 38 }}>🚌</Text>
+        </View>
+        <Text style={[typography.display, { fontSize: 30 }]}>RutaSegura</Text>
+        <Text style={{ fontSize: 14, color: colors.textMuted, fontWeight: '600' }}>Transporte Escolar</Text>
       </View>
 
-      <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text }}>
-        Iniciar sesión
-      </Text>
-      <Text style={{ fontSize: 16, color: colors.textMuted, marginBottom: 12 }}>
-        Ingresa con la cuenta que te dimos al empezar el piloto.
-      </Text>
+      <View style={{ gap: 4 }}>
+        <Text style={[typography.h2, { fontSize: 22 }]}>Iniciar sesión</Text>
+        <Text style={typography.muted}>Ingresa con la cuenta que te dimos al empezar el piloto.</Text>
+      </View>
 
-      <TextInput
-        placeholder="Correo"
+      <Field
+        label="Correo"
+        placeholder="tucorreo@ejemplo.cl"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={inputStyle}
       />
-      <TextInput
-        placeholder="Contraseña"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={inputStyle}
-      />
+      <Field label="Contraseña" placeholder="••••••••" secureTextEntry value={password} onChangeText={setPassword} />
 
-      {errorMsg && <Text style={{ color: colors.danger }}>{errorMsg}</Text>}
+      {errorMsg && <ErrorText>{errorMsg}</ErrorText>}
 
-      <Pressable
-        onPress={handleLogin}
-        disabled={loading || !email || !password}
-        style={{
-          height: 56,
-          borderRadius: 16,
-          backgroundColor: colors.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: loading || !email || !password ? 0.5 : 1,
-        }}
-      >
-        {loading ? <ActivityIndicator /> : <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>Entrar</Text>}
-      </Pressable>
-      <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13, marginTop: 'auto' }}>
+      <Button title="Entrar" onPress={handleLogin} loading={loading} disabled={!email || !password} />
+
+      <Spacer />
+      <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13, marginBottom: 12 }}>
         Juntos en cada trayecto
       </Text>
-    </View>
+    </Screen>
   );
 }
-
-const inputStyle = {
-  height: 52,
-  borderWidth: 1.5,
-  borderColor: '#C9C1AF',
-  borderRadius: 14,
-  paddingHorizontal: 14,
-  fontSize: 17,
-  backgroundColor: '#FFFFFF',
-} as const;

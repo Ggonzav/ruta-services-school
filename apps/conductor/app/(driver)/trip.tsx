@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { finishTrip, markStop } from '@/lib/tripApi';
 import { stopSharingLocation } from '@/lib/backgroundLocation';
 import { nextPendingStop, tripProgress, upcomingStops, type Stop } from '@/lib/tripLogic';
-import { colors } from '@/lib/theme';
+import { colors, typography } from '@/lib/theme';
 import { directionForKind, type RouteDirection, type RouteKind } from '../../../../shared/rutasegura-api';
+import { Avatar, Button, Card, Eyebrow, Loading, Pill, ProgressBar, Screen, Snackbar, Spacer } from '@/components/ui';
 
 // Pantalla 2 del prototipo visual: una parada a la vez, dos botones
 // grandes. Deliberadamente NO hay mapa ni lista larga que requiera scroll
@@ -18,6 +19,8 @@ export default function TripScreen() {
   const [direction, setDirection] = useState<RouteDirection>('to_school');
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     const { data: trip } = await supabase.from('trips').select('route_id, routes(kind)').eq('id', tripId).single();
@@ -58,21 +61,29 @@ export default function TripScreen() {
   const current = nextPendingStop(stops, settled);
   const progress = tripProgress(stops, settled);
   const upcoming = current ? upcomingStops(stops, settled, current.studentId) : [];
+  const isToSchool = direction === 'to_school';
+
+  function showToast(message: string) {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  }
 
   async function act(action: 'completed' | 'absent') {
     if (!current) return;
+    const stop = current;
     setActing(true);
     try {
-      await markStop(tripId, current.studentId, action);
-      setSettled((prev) => new Set(prev).add(current.studentId));
+      await markStop(tripId, stop.studentId, action);
+      setSettled((prev) => new Set(prev).add(stop.studentId));
+      const verb = action === 'absent' ? 'No viaja' : isToSchool ? 'Subió' : 'Bajó';
+      showToast(`${stop.fullName} · ${verb}`);
     } catch (err) {
       Alert.alert('No se pudo registrar', 'Intenta de nuevo.');
     } finally {
       setActing(false);
     }
   }
-
-  const isToSchool = direction === 'to_school';
 
   async function handleFinish() {
     Alert.alert('Finalizar recorrido', '¿Seguro que quieres finalizar?', [
@@ -93,134 +104,67 @@ export default function TripScreen() {
     ]);
   }
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  if (loading) return <Loading />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 56, paddingHorizontal: 20, gap: 14 }}>
+    <Screen style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            backgroundColor: colors.accent,
-            borderRadius: 20,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-          }}
-        >
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success }} />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>En recorrido</Text>
-        </View>
-        <Text style={{ color: colors.success, fontWeight: '800' }}>
-          GPS activo
-        </Text>
+        <Pill label="En recorrido" />
+        <Text style={{ color: colors.success, fontWeight: '800' }}>GPS activo</Text>
       </View>
 
-      {current ? (
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.cardBorder,
-          borderRadius: 22,
-          padding: 20,
-          gap: 12,
-          shadowColor: '#0B2A55',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 8 },
-        }}
-      >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#2684FF', textTransform: 'uppercase' }}>
-            Próxima parada · {Math.min(progress.done + 1, progress.total)} de {progress.total}
-          </Text>
-          <Text style={{ fontSize: 34, fontWeight: '800', color: colors.text }}>{current.fullName}</Text>
-          <Text style={{ fontSize: 16, color: colors.textMuted }}>{current.address}</Text>
+      <ProgressBar done={progress.done} total={progress.total} />
 
-          <Pressable
-            onPress={() => act('completed')}
-            disabled={acting}
-            style={{
-              height: 72,
-              borderRadius: 18,
-              backgroundColor: colors.success,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: acting ? 0.6 : 1,
-              marginTop: 4,
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '800' }}>
-              {isToSchool ? 'Subió' : 'Bajó'}
+      {current ? (
+        <>
+          <Eyebrow>PARADA ACTUAL</Eyebrow>
+          <Card style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}>
+            <Avatar name={current.fullName} />
+            <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 0.5, color: colors.blue }}>
+              PARADA {Math.min(progress.done + 1, progress.total)} DE {progress.total}
             </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => act('absent')}
-            disabled={acting}
-            style={{
-              height: 56,
-              borderRadius: 16,
-              borderWidth: 2,
-              borderColor: colors.danger,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: acting ? 0.6 : 1,
-            }}
-          >
-            <Text style={{ color: colors.danger, fontSize: 18, fontWeight: '800' }}>No viaja</Text>
-          </Pressable>
-        </View>
+            <Text style={[typography.h2, { textAlign: 'center' }]}>{current.fullName}</Text>
+            <Text style={[typography.small, { textAlign: 'center' }]}>{current.address}</Text>
+          </Card>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button
+              title={isToSchool ? 'Subió' : 'Bajó'}
+              variant="success"
+              onPress={() => act('completed')}
+              disabled={acting}
+              style={{ flex: 1 }}
+            />
+            <Button title="No viaja" variant="danger" onPress={() => act('absent')} disabled={acting} style={{ flex: 1 }} />
+          </View>
+        </>
       ) : (
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.cardBorder,
-            borderRadius: 22,
-            padding: 20,
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: '700' }}>Ya pasaste por todas las paradas.</Text>
-        </View>
+        <Card>
+          <Text style={typography.title}>Ya pasaste por todas las paradas.</Text>
+        </Card>
       )}
 
       {upcoming.length > 0 && (
-        <View>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMuted, marginBottom: 4 }}>
-            Después
-          </Text>
+        <View style={{ gap: 6 }}>
+          <Text style={[typography.small, { fontWeight: '700' }]}>Siguen</Text>
           {upcoming.map((s) => (
-            <Text key={s.studentId} style={{ fontSize: 16, fontWeight: '600', height: 36 }}>
+            <Text key={s.studentId} style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>
               {s.fullName}
             </Text>
           ))}
         </View>
       )}
 
-      <View style={{ flexGrow: 1 }} />
+      <Spacer />
 
-      <Pressable
+      <Button
+        title="Finalizar recorrido"
+        variant="neutralGhost"
+        size="md"
         onPress={handleFinish}
-        style={{
-          height: 54,
-          borderRadius: 16,
-          borderWidth: 2,
-          borderColor: colors.danger,
-          backgroundColor: colors.danger,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 20,
-        }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '800' }}>Finalizar recorrido</Text>
-      </Pressable>
-    </View>
+        style={{ marginBottom: 20 }}
+      />
+
+      {toast && <Snackbar text={toast} />}
+    </Screen>
   );
 }
