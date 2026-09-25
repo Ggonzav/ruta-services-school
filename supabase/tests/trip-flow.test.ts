@@ -53,6 +53,36 @@ describe('flujo del conductor: start_trip / record_student_event / finish_trip',
     ).rejects.toThrow(/not_your_trip/);
   });
 
+  it('driver_mark_stop es idempotente ante doble tap o retry móvil', async () => {
+    const trip = await t.as(s.carrierB.userId, (db) =>
+      db.query<{ trip_id: string }>(`select public.driver_start_trip($1)->>'tripId' as trip_id`, [s.routeBId])
+    );
+    const tripId = trip.rows[0].trip_id;
+
+    const first = await t.as(s.carrierB.userId, (db) =>
+      db.query<{ result: any }>(`select public.driver_mark_stop($1, $2, 'completed') as result`, [
+        tripId,
+        s.sofiaId,
+      ])
+    );
+    const second = await t.as(s.carrierB.userId, (db) =>
+      db.query<{ result: any }>(`select public.driver_mark_stop($1, $2, 'completed') as result`, [
+        tripId,
+        s.sofiaId,
+      ])
+    );
+
+    expect(first.rows[0].result.idempotent).toBe(false);
+    expect(second.rows[0].result.idempotent).toBe(true);
+
+    const events = await t.db.query(
+      `select id from public.trip_events
+       where trip_id = $1 and student_id = $2 and kind in ('picked_up', 'dropped_off', 'skipped')`,
+      [tripId, s.sofiaId]
+    );
+    expect(events.rows).toHaveLength(1);
+  });
+
   it('finish_trip cierra el recorrido y ya no admite más eventos de alumnos', async () => {
     const trip = await t.as(s.carrierA.userId, (db) =>
       db.query<{ id: string }>(

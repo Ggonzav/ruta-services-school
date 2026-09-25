@@ -2,13 +2,13 @@
 // Edge Function: update-eta
 //
 // La llama el teléfono del conductor cada 30–45 segundos mientras un
-// recorrido está "in_progress". Recibe la posición actual, la manda UNA
-// VEZ a Mapbox y la descarta: nunca se escribe en la base de datos. Lo
-// único que persiste es el resultado — segundos hasta cada parada — en
-// trip_stop_eta, con la service role key (bypassa RLS a propósito: esta
-// función SÍ necesita ver todas las paradas del recorrido para pedirle a
-// Mapbox la ruta completa; los apoderados siguen limitados por RLS al
-// leer trip_stop_eta).
+// recorrido está "in_progress". Recibe la posición actual, la manda a
+// Mapbox y guarda sólo la ÚLTIMA ubicación del furgón por recorrido en
+// trip_vehicle_location, sin historial. Esa coordenada se borra al finalizar
+// y RLS sólo la expone a apoderados de ese recorrido cuando está fresca. El
+// ETA por alumno persiste en trip_stop_eta, con la service role key (bypassa
+// RLS a propósito: esta función SÍ necesita ver todas las paradas del
+// recorrido para pedirle a Mapbox la ruta completa).
 //
 // Deploy: supabase functions deploy update-eta
 // Config: supabase secrets set MAPBOX_ACCESS_TOKEN=...
@@ -174,13 +174,20 @@ Deno.serve(async (req: Request) => {
   if (newlyApproaching.length > 0) {
     // Este insert es lo que un trigger (fuera del alcance del MVP, ver
     // docs/ARQUITECTURA.md) convierte en push "El furgón de X está cerca".
-    await admin.from('trip_events').insert(
-      newlyApproaching.map((studentId) => ({
+    // Se inserta de a uno porque el índice unique de approaching es parcial;
+    // PostgREST no puede resolver un upsert limpio contra ese índice. Si dos
+    // ticks compiten, ignoramos 23505 y el resto de alumnos sigue notificándose.
+    for (const studentId of newlyApproaching) {
+      const { error: approachingInsertError } = await admin.from('trip_events').insert({
         trip_id: trip.id,
         student_id: studentId,
         kind: 'approaching',
-      }))
-    );
+      });
+
+      if (approachingInsertError && approachingInsertError.code !== '23505') {
+        return json({ error: 'approaching_insert_failed', detail: approachingInsertError.message }, 500);
+      }
+    }
   }
 
   return json({ ok: true, eta_source: etaSource, stops_updated: stopEtas.length, newly_approaching: newlyApproaching });

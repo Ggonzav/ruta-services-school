@@ -28,11 +28,12 @@ decisiones que no son obvias del SQL:
   tener una dirección AM y otra PM (dos padres, por ejemplo), así que la
   parada vive en `route_stops`, no en `students`. Cada mañana, `start_trip`
   crea (o retoma) la fila de `trips` de ese día.
-- **La posición GPS nunca se persiste.** No existe una tabla `positions` ni
-  similar. El teléfono del conductor manda su posición a la Edge Function
-  `update-eta`, que la usa una sola vez (para pedirle la ruta a Mapbox) y la
-  descarta. Lo único que queda en la base es `trip_stop_eta`: segundos
-  restantes por alumno, nunca coordenadas.
+- **La posición GPS se persiste sólo como última ubicación del recorrido
+  activo.** Para el MVP “tipo Uber”, `0008_vehicle_location.sql` agrega
+  `trip_vehicle_location`: una fila por `trip`, sin historial. La Edge
+  Function `update-eta` la sobreescribe con cada update, `finishTrip` la borra
+  al finalizar y RLS sólo la expone a apoderados de ese recorrido cuando está
+  fresca. El ETA por alumno sigue separado en `trip_stop_eta`.
 - **`trip_events` es la fuente de verdad de "qué pasó".** Iniciado, cerca,
   subió, no viaja, llegó, finalizado — todo es una fila en esta tabla. La
   línea de tiempo que ve el apoderado (pantallas 5/8) es una lectura
@@ -57,8 +58,9 @@ funciona. Puntos que vale la pena mirar directamente en el SQL:
 - `trip_events`: el apoderado ve los eventos generales del recorrido
   (`student_id is null`) más los de su propio hijo — nunca los de un
   hermano de furgón.
-- `trip_stop_eta`: la única tabla con "dónde está el furgón" (como
-  segundos, nunca coordenadas), con la misma regla de una fila por hijo.
+- `trip_stop_eta`: ETA por alumno, con la misma regla de una fila por hijo.
+- `trip_vehicle_location`: última coordenada del furgón para mostrar el mapa
+  en vivo, sin historial, visible sólo mientras está fresca.
 
 Truco de implementación: la política de `routes` no puede reutilizar la
 función `is_my_route()` para su propio `INSERT` — un `WITH CHECK` no puede
@@ -118,10 +120,11 @@ lng }`.
    más barato.
 4. Cada `leg` de la respuesta es un tramo; el ETA de la parada *i* es la
    suma acumulada de los tramos `0..i`. `upsert` en `trip_stop_eta`.
-5. Si el ETA de la próxima parada cruza el umbral (6 minutos por defecto) y
+5. Si la distancia acumulada hacia una parada cruza el umbral de 500 metros y
    ese alumno no tenía ya un evento `approaching`, inserta uno — es lo que,
    en producción, un trigger convertiría en push "el furgón está cerca"
-   (ver §7).
+   (ver §7). El cálculo usa `legs.distance` de Mapbox y cae a Haversine si
+   Mapbox no responde.
 
 **Límite verificado de Mapbox:** la Directions API acepta hasta **25
 coordenadas** por request (conductor + 24 paradas), igual para
@@ -172,10 +175,13 @@ verdad.
   ya se canjeó en este navegador) es pura y está testeada. `src/app.ts` es
   el único archivo que toca el DOM/Supabase directamente, y por eso no
   tiene test propio — mismo patrón que `backgroundLocation.ts`.
-- El ETA se actualiza en vivo con **Supabase Realtime** (`postgres_changes`
-  sobre `trip_stop_eta` y `trip_events`, filtrado por `student_id`): RLS
-  aplica también a las suscripciones Realtime, así que aunque el cliente
-  se suscriba "a todo", sólo recibe cambios de las filas que puede leer.
+- El ETA y mapa se actualizan en vivo con **Supabase Realtime**
+  (`postgres_changes` sobre `trip_stop_eta`, `trip_events` y
+  `trip_vehicle_location`). `0009_backend_safety_realtime.sql` agrega esas
+  tablas a la publicación `supabase_realtime` para que el comportamiento sea
+  reproducible. RLS aplica también a las suscripciones Realtime, así que aunque
+  el cliente se suscriba "a todo", sólo recibe cambios de las filas que puede
+  leer.
 
 ## 7. Lo que NO se construyó en este MVP (a propósito)
 
