@@ -174,13 +174,20 @@ Deno.serve(async (req: Request) => {
   if (newlyApproaching.length > 0) {
     // Este insert es lo que un trigger (fuera del alcance del MVP, ver
     // docs/ARQUITECTURA.md) convierte en push "El furgón de X está cerca".
-    await admin.from('trip_events').insert(
-      newlyApproaching.map((studentId) => ({
+    // Se inserta de a uno porque el índice unique de approaching es parcial;
+    // PostgREST no puede resolver un upsert limpio contra ese índice. Si dos
+    // ticks compiten, ignoramos 23505 y el resto de alumnos sigue notificándose.
+    for (const studentId of newlyApproaching) {
+      const { error: approachingInsertError } = await admin.from('trip_events').insert({
         trip_id: trip.id,
         student_id: studentId,
         kind: 'approaching',
-      }))
-    );
+      });
+
+      if (approachingInsertError && approachingInsertError.code !== '23505') {
+        return json({ error: 'approaching_insert_failed', detail: approachingInsertError.message }, 500);
+      }
+    }
   }
 
   return json({ ok: true, eta_source: etaSource, stops_updated: stopEtas.length, newly_approaching: newlyApproaching });

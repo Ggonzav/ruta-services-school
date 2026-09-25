@@ -7,6 +7,45 @@
 --   - grants defensivos para RPC SECURITY DEFINER
 -- ============================================================================
 
+-- Limpia duplicados históricos antes de crear índices únicos. En una BD que ya
+-- tuvo el bug de doble tap/retry, CREATE UNIQUE INDEX abortaría sin esto.
+-- Conserva el primer evento creado y elimina sólo repeticiones exactas del
+-- mismo kind para la misma entidad de recorrido.
+delete from public.trip_events a
+using public.trip_events b
+where a.trip_id = b.trip_id
+  and a.student_id is not distinct from b.student_id
+  and a.kind = b.kind
+  and a.kind = 'approaching'
+  and a.ctid > b.ctid;
+
+-- Los eventos terminales son mutuamente excluyentes para un alumno dentro del
+-- mismo recorrido. Si una BD vieja quedó con picked_up + skipped, dejamos el
+-- primero creado y eliminamos el resto para que el índice parcial pueda crearse.
+with ranked_terminal_events as (
+  select
+    ctid,
+    row_number() over (
+      partition by trip_id, student_id
+      order by created_at asc, ctid asc
+    ) as rn
+  from public.trip_events
+  where kind in ('picked_up', 'dropped_off', 'skipped')
+)
+delete from public.trip_events e
+using ranked_terminal_events r
+where e.ctid = r.ctid
+  and r.rn > 1;
+
+delete from public.trip_events a
+using public.trip_events b
+where a.trip_id = b.trip_id
+  and a.student_id is null
+  and b.student_id is null
+  and a.kind = b.kind
+  and a.kind in ('started', 'finished')
+  and a.ctid > b.ctid;
+
 -- Un único evento terminal por alumno dentro de un recorrido. Esto permite
 -- usar ON CONFLICT de verdad en driver_mark_stop, sin race condition.
 create unique index if not exists uq_trip_events_terminal
