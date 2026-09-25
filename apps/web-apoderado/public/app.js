@@ -20894,7 +20894,7 @@ async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Da
   if (trip.status !== "in_progress") return result;
   const { data: eta, error: etaError } = await client.from("trip_stop_eta").select("eta_seconds, updated_at").eq("trip_id", trip.id).eq("student_id", studentId).maybeSingle();
   if (etaError) throw etaError;
-  const { data: vehicleLocation, error: vehicleError } = await client.from("trip_vehicle_location").select("lat, lng, updated_at").eq("trip_id", trip.id).maybeSingle();
+  const { data: vehicleLocation, error: vehicleError } = await client.from("trip_vehicle_location").select("lat, lng, updated_at").eq("trip_id", trip.id).gt("updated_at", new Date(Date.now() - 2 * 6e4).toISOString()).maybeSingle();
   if (vehicleError) throw vehicleError;
   return {
     ...result,

@@ -2,13 +2,13 @@
 // Edge Function: update-eta
 //
 // La llama el teléfono del conductor cada 30–45 segundos mientras un
-// recorrido está "in_progress". Recibe la posición actual, la manda UNA
-// VEZ a Mapbox y la descarta: nunca se escribe en la base de datos. Lo
-// único que persiste es el resultado — segundos hasta cada parada — en
-// trip_stop_eta, con la service role key (bypassa RLS a propósito: esta
-// función SÍ necesita ver todas las paradas del recorrido para pedirle a
-// Mapbox la ruta completa; los apoderados siguen limitados por RLS al
-// leer trip_stop_eta).
+// recorrido está "in_progress". Recibe la posición actual, la manda a
+// Mapbox y guarda sólo la ÚLTIMA ubicación del furgón por recorrido en
+// trip_vehicle_location, sin historial. Esa coordenada se borra al finalizar
+// y RLS sólo la expone a apoderados de ese recorrido cuando está fresca. El
+// ETA por alumno persiste en trip_stop_eta, con la service role key (bypassa
+// RLS a propósito: esta función SÍ necesita ver todas las paradas del
+// recorrido para pedirle a Mapbox la ruta completa).
 //
 // Deploy: supabase functions deploy update-eta
 // Config: supabase secrets set MAPBOX_ACCESS_TOKEN=...
