@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { finishTrip, type TripSummary } from '@/lib/tripApi';
 import { formatDuration } from '@/lib/tripLogic';
-import { colors } from '@/lib/theme';
+import { colors, radius, typography } from '@/lib/theme';
+import { Button, Card, Loading, Screen, Spacer } from '@/components/ui';
 
 // Pantalla 3 del prototipo visual. finishTrip ya se llamó desde trip.tsx
 // (para cerrar el recorrido cuanto antes); acá sólo se relee el resumen
@@ -22,80 +23,72 @@ export default function SummaryScreen() {
       });
   }, [tripId]);
 
-  if (!summary) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  if (!summary) return <Loading />;
 
   const duration = formatDuration(new Date(summary.startedAt), new Date(summary.endedAt));
   const isToSchool = summary.direction === 'to_school';
+  const arrivalLabel = isToSchool ? 'Todos llegaron al colegio' : 'Todos llegaron a casa';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 96, paddingHorizontal: 20, gap: 22 }}>
-      <View style={{ alignItems: 'center', gap: 16 }}>
+    <Screen style={{ paddingTop: 88, gap: 20 }}>
+      <View style={{ alignItems: 'center', gap: 14 }}>
         <View
           style={{
             width: 76,
             height: 76,
             borderRadius: 38,
-            backgroundColor: colors.success,
+            backgroundColor: colors.successBg,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 32 }}>✓</Text>
+          <Text style={{ color: colors.success, fontSize: 34, fontWeight: '800' }}>✓</Text>
         </View>
-        <Text style={{ fontSize: 34, fontWeight: '800', color: colors.text, textAlign: 'center' }}>¡Recorrido finalizado!</Text>
-        <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: 'center' }}>
+        <Text style={[typography.display, { textAlign: 'center' }]}>Recorrido finalizado</Text>
+        <Text style={[typography.muted, { textAlign: 'center' }]}>
           Dejaste de compartir tu ubicación. Los apoderados ya ven que {isToSchool ? 'llegaron al colegio' : 'llegaron a casa'}.
         </Text>
       </View>
 
-      <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 18 }}>
-        <SummaryRow label="Alumnos" value={summary.total} />
-        <SummaryRow label={isToSchool ? 'Subieron' : 'Bajaron'} value={summary.completed} />
-        <SummaryRow label="No viajó" value={summary.absent} />
-        <SummaryRow label={isToSchool ? 'Llegaron al colegio' : 'Llegaron a casa'} value={summary.completed} />
-        <SummaryRow label="Duración" value={duration} last />
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <StatTile value={summary.completed} label={isToSchool ? 'SUBIERON' : 'BAJARON'} />
+        <StatTile value={summary.absent} label="NO VIAJARON" />
+        <StatTile value={summary.total} label="TOTAL" />
       </View>
 
-      <View style={{ flexGrow: 1 }} />
-
-      <Pressable
-        onPress={() => router.replace('/(driver)/home')}
+      <View
         style={{
-          height: 60,
-          borderRadius: 18,
-          backgroundColor: colors.accent,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 24,
+          gap: 10,
+          backgroundColor: colors.successBg,
+          borderRadius: radius.md,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 19, fontWeight: '800' }}>Volver a mis rutas</Text>
-      </Pressable>
-    </View>
+        <Text style={{ fontSize: 16 }}>🏫</Text>
+        <Text style={{ color: colors.success, fontWeight: '700', fontSize: 13.5, flexShrink: 1 }}>{arrivalLabel}</Text>
+      </View>
+
+      <Card>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={typography.body}>Duración</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{duration}</Text>
+        </View>
+      </Card>
+
+      <Spacer />
+      <Button title="Volver a mis rutas" onPress={() => router.replace('/(driver)/home')} style={{ marginBottom: 24 }} />
+    </Screen>
   );
 }
 
-function SummaryRow({ label, value, last = false }: { label: string; value: number | string; last?: boolean }) {
+function StatTile({ value, label }: { value: number | string; label: string }) {
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 56,
-        paddingHorizontal: 18,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: '#EFE9DA',
-      }}
-    >
-      <Text style={{ fontSize: 17 }}>{label}</Text>
-      <Text style={{ fontSize: 17, fontWeight: '700' }}>{value}</Text>
-    </View>
+    <Card style={{ flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 }}>
+      <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text }}>{value}</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textMuted, marginTop: 2 }}>{label}</Text>
+    </Card>
   );
 }
