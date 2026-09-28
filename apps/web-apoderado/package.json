@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/app.ts --bundle --format=esm --target=es2020 --outfile=public/app.js",
+    "build": "npm run build:config && esbuild src/app.ts --bundle --format=esm --target=es2020 --outfile=public/app.js",
     "dev": "npm run build -- --watch & npx serve public",
-    "serve": "npx serve public"
+    "serve": "npx serve public",
+    "build:config": "node scripts/build-config.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"
