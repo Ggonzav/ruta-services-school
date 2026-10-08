@@ -20864,6 +20864,9 @@ function tripClock(now = /* @__PURE__ */ new Date()) {
 function directionForKind(kind) {
   return kind === "AM" ? "to_school" : "to_home";
 }
+function kindForDirection(direction) {
+  return direction === "to_school" ? "AM" : "PM";
+}
 
 // src/trip-data.ts
 async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Date()) {
@@ -20927,6 +20930,7 @@ var root = document.getElementById("app");
 var realtimeChannel = null;
 var refreshTimer;
 var refreshVersion = 0;
+var activeRouteKind = null;
 var leafletMap = null;
 var vehicleMarker = null;
 var stopMarker = null;
@@ -21080,6 +21084,7 @@ async function refreshOnce(student) {
   try {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version5 !== refreshVersion) return;
+    activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
     const viewPhase = routeViewPhase(snapshot.events, student.studentId, snapshot.direction, snapshot.status);
     paintEta(snapshot.etaSeconds, snapshot.updatedAt, snapshot.status, snapshot.direction, viewPhase);
     void paintMap(snapshot.map, viewPhase);
@@ -21286,7 +21291,8 @@ async function enableBestEffortNotifications() {
   new Notification("Listo", { body: "Te avisaremos mientras tengas esta p\xE1gina abierta." });
 }
 async function markAbsence(studentId) {
-  const { date: today, kind } = tripClock();
+  const { date: today, kind: clockKind } = tripClock();
+  const kind = activeRouteKind ?? clockKind;
   const { error } = await supabase.rpc("mark_absence", {
     p_student_id: studentId,
     p_absence_date: today,

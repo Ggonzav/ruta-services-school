@@ -13,6 +13,7 @@ import { loadRedeemedStudents, saveRedeemedStudent, type RedeemedStudent } from 
 import { parseInviteToken } from './router';
 import { fetchTripSnapshot, type TripMapSnapshot, type TripStatus } from './trip-data';
 import { tripClock } from '../../../shared/trip-clock';
+import { kindForDirection, type RouteKind } from '../../../shared/rutasegura-api';
 
 declare global {
   interface Window {
@@ -25,6 +26,11 @@ const root = document.getElementById('app')!;
 let realtimeChannel: RealtimeChannel | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let refreshVersion = 0;
+// Turno (AM/PM) del recorrido que el apoderado tiene EN PANTALLA. Se usa para
+// que "Hoy no viaja" marque la ausencia del turno correcto en vez de inferirlo
+// del reloj (si ve la ida AM pasadas las 13:00, debe marcar AM, no PM).
+// null = no hay recorrido mostrado → se cae al turno del reloj.
+let activeRouteKind: RouteKind | null = null;
 let leafletMap: any = null;
 let vehicleMarker: any = null;
 let stopMarker: any = null;
@@ -210,6 +216,7 @@ async function refreshOnce(student: RedeemedStudent) {
   try {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version !== refreshVersion) return;
+    activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
     const viewPhase = routeViewPhase(snapshot.events, student.studentId, snapshot.direction, snapshot.status);
     paintEta(snapshot.etaSeconds, snapshot.updatedAt, snapshot.status, snapshot.direction, viewPhase);
     void paintMap(snapshot.map, viewPhase);
@@ -483,7 +490,10 @@ async function enableBestEffortNotifications() {
 }
 
 async function markAbsence(studentId: string) {
-  const { date: today, kind } = tripClock();
+  const { date: today, kind: clockKind } = tripClock();
+  // El turno del recorrido mostrado manda; el reloj es solo el respaldo cuando
+  // todavía no hay recorrido en pantalla (p. ej. avisar la noche anterior).
+  const kind = activeRouteKind ?? clockKind;
   const { error } = await supabase.rpc('mark_absence', {
     p_student_id: studentId,
     p_absence_date: today,
