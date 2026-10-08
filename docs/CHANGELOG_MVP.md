@@ -16,7 +16,8 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Workflow `.github/workflows/ci.yml`: checks `Tests` y `Web build` para PRs a develop/main y pushes a esas ramas. Node 22, npm ci, permisos de sólo lectura y timeout de 10 minutos.
 - Verificación local: 91 tests en 13 archivos aprobados sobre develop; build web aprobado. La verificación anterior de 92 tests incluía cambios de otra rama.
 - Los archivos públicos generados se restauraron tras la verificación.
-- Pendiente: ejecución en GitHub, revisión independiente y activación de protección de ramas.
+- La primera ejecución en GitHub detectó que faltaba instalar Expo para resolver el tsconfig de los tests del conductor. Se agregó npm ci en apps/conductor.
+- Pendiente: confirmar nueva ejecución en GitHub, revisión independiente y activación de protección de ramas.
 - Reversión: revertir el workflow; coordinar los checks obligatorios para no bloquear PRs si se retira.
 
 ## Plantilla para próximas entradas
