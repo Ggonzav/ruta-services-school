@@ -29,7 +29,7 @@ Una falla de aislamiento, un secreto expuesto o un hallazgo Alto sin resolver bl
 
 Cada PR debe indicar problema, cambios, pruebas, riesgos y reversión. Usar commits descriptivos y migraciones numeradas nuevas; no reescribir migraciones ya aplicadas. No versionar secretos ni datos personales de prueba. Actualizar arquitectura y deploy cuando corresponda.
 
-Configurar en GitHub, como tarea pendiente: protección de `main` y `develop`, PR obligatorio, revisión independiente y checks de CI obligatorios. Verificar los nombres reales de los checks antes de configurarlos. Estas protecciones no se han configurado en esta tarea.
+Configuración exigida en GitHub: protección de `main` y `develop`, PR obligatorio, una aprobación independiente, conversaciones resueltas y checks `Tests` y `Web build` de GitHub Actions aprobados con la rama actualizada. Incluye administradores y bloquea force push y borrado. Consultar el historial y GitHub para el estado efectivo; el workflow debe estar incorporado en las ramas para aplicarse a futuros cambios.
 
 ## Regla operativa
 
