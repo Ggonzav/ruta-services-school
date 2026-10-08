@@ -14,7 +14,7 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 ## 2026-10-07 — CI para pull requests
 
 - Workflow `.github/workflows/ci.yml`: checks `Tests` y `Web build` para PRs a develop/main y pushes a esas ramas. Node 22, npm ci, permisos de sólo lectura y timeout de 10 minutos.
-- Verificación local: 92 tests en 13 archivos aprobados; build web aprobado usando configuración ficticia, sin secretos.
+- Verificación local: 91 tests en 13 archivos aprobados sobre develop; build web aprobado. La verificación anterior de 92 tests incluía cambios de otra rama.
 - Los archivos públicos generados se restauraron tras la verificación.
 - Pendiente: ejecución en GitHub, revisión independiente y activación de protección de ramas.
 - Reversión: revertir el workflow; coordinar los checks obligatorios para no bloquear PRs si se retira.
