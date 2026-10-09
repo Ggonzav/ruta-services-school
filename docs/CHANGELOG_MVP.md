@@ -35,3 +35,11 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 
 - Protecciones activadas en main y develop: PR, una aprobación independiente, invalidación de aprobaciones al añadir cambios, conversaciones resueltas, rama actualizada y checks Tests/Web build de GitHub Actions. Incluye administradores; force push y borrado deshabilitados.
 - El workflow fue verificado en el PR #5. Falta revisión y merge para incorporarlo a develop y posteriormente a main. No se desplegó la aplicación.
+
+## 2026-10-09 — Alumno correspondiente a cada invitación
+
+- Se elimina el atajo que mostraba el último alumno guardado al abrir cualquier invitación con sesión activa. Cada enlace pasa por el formulario y redeem_invite; sólo la respuesta del servidor determina el alumno.
+- Pruebas: 97 tests aprobados, incluidos dos casos de enlaces distintos con Benjamín recordado y rechazo de invitación vencida; build web y git diff --check aprobados.
+- Configuración local de Mapbox conservada; no se incluye en el commit.
+- Pendiente: revisión independiente y comprobación manual de dos invitaciones válidas en el mismo navegador tras publicar. No cambia RLS ni RPC ni requiere migración.
+- Reversión: revertir este cambio y regenerar el bundle; restauraría el defecto conocido.

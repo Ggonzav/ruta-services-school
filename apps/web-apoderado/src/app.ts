@@ -76,19 +76,8 @@ async function main() {
 // ---------------------------------------------------------------------------
 
 async function handleInvite(token: string) {
-  const { data: existing } = await supabase.auth.getSession();
-  const already = loadRedeemedStudents();
-
-  // Si esta sesión ya canjeó este link antes (recargó la página, por
-  // ejemplo), no le volvemos a pedir el nombre.
-  if (existing.session) {
-    const known = already[0]; // best-effort: MVP no distingue "cuál alumno es este token"  sin volver a pedir el server
-    if (known) {
-      renderEtaView(known);
-      return;
-    }
-  }
-
+  // El alumno de una invitación lo determina redeem_invite, nunca el caché local.
+  // Incluso con sesión existente, validar este token antes de mostrar datos.
   root.innerHTML = `
     <div class="invite">
       <div class="brand">🚌 RutaSegura</div>
