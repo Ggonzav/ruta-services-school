@@ -85,3 +85,10 @@ npm run serve                                    # sirve public/ en localhost
 Para desplegar, `public/` es un sitio estático (Vercel, Netlify, GitHub
 Pages). Ya incluye `vercel.json` y `public/_redirects` para que
 `/i/<token>` sirva `index.html` en ambos.
+
+## Marco de trabajo
+
+Antes de cambiar el MVP, leer [WORKING_AGREEMENT](docs/WORKING_AGREEMENT.md).
+Consultar [contrato de arquitectura](docs/ARCHITECTURE.md), [QA](docs/QA_CHECKLIST.md),
+[revisión de seguridad](docs/SECURITY_REVIEW.md) e [historial](docs/CHANGELOG_MVP.md).
+Las instrucciones para agentes están en `AGENTS.md`.
