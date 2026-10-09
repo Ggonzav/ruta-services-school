@@ -20792,6 +20792,17 @@ function buildTimeline(events, studentId, studentFirstName, direction = "to_scho
     }
   ];
 }
+function boardingStatus(events, studentId, direction) {
+  const has = (kind) => events.some((e) => e.kind === kind && e.student_id === studentId);
+  if (has("dropped_off") || has("skipped")) return "arrived";
+  if (direction === "to_school") return has("picked_up") ? "on_board" : "waiting_pickup";
+  return "on_board";
+}
+function boardingStatusLabel(status, direction) {
+  if (status === "on_board") return "A bordo";
+  if (status === "waiting_pickup") return "Esperando retiro";
+  return direction === "to_school" ? "Lleg\xF3 al colegio" : "Lleg\xF3 a casa";
+}
 function timeOf(event) {
   if (!event) return null;
   const d = new Date(event.created_at);
@@ -20803,13 +20814,6 @@ function formatEtaMinutes(etaSeconds) {
   const minutes = Math.round(etaSeconds / 60);
   if (minutes <= 0) return "menos de 1 min";
   return `${minutes} min`;
-}
-function connectionState(params) {
-  const { tripStatus, lastEtaUpdatedAt, nowMs, staleAfterMs = 9e4 } = params;
-  if (tripStatus === "finished" || tripStatus === "canceled") return "ended";
-  if (!lastEtaUpdatedAt) return "connecting";
-  const age = nowMs - new Date(lastEtaUpdatedAt).getTime();
-  return age > staleAfterMs ? "stale" : "live";
 }
 
 // src/local-students.ts
@@ -20871,7 +20875,7 @@ function kindForDirection(direction) {
 // src/trip-data.ts
 async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Date()) {
   const { date, kind: clockKind } = tripClock(now);
-  const empty = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null };
+  const empty = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null, isNext: false };
   const { data: stops, error: stopsError } = await client.from("route_stops").select("route_id, lat, lng, address, routes!inner(kind, school_lat, school_lng, school_name)").eq("student_id", studentId);
   if (stopsError) throw stopsError;
   if (!stops?.length) return empty;
@@ -20902,8 +20906,14 @@ async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Da
   if (etaError) throw etaError;
   const { data: vehicleLocation, error: vehicleError } = await client.from("trip_vehicle_location").select("lat, lng, updated_at").eq("trip_id", trip.id).gt("updated_at", new Date(Date.now() - 2 * 6e4).toISOString()).maybeSingle();
   if (vehicleError) throw vehicleError;
+  const { data: isNextData, error: isNextError } = await client.rpc("guardian_is_next", {
+    p_trip_id: trip.id,
+    p_student_id: studentId
+  });
+  if (isNextError) throw isNextError;
   return {
     ...result,
+    isNext: isNextData === true,
     etaSeconds: eta?.eta_seconds ?? null,
     updatedAt: eta?.updated_at ?? null,
     map: result.map ? {
@@ -21076,29 +21086,23 @@ async function refreshOnce(student) {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version5 !== refreshVersion) return;
     activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
-    const viewPhase = routeViewPhase(snapshot.events, student.studentId, snapshot.direction, snapshot.status);
-    paintEta(snapshot.etaSeconds, snapshot.updatedAt, snapshot.status, snapshot.direction, viewPhase);
-    void paintMap(snapshot.map, viewPhase);
+    const mode = viewMode(snapshot);
+    paintEtaCard(snapshot, student.studentId, mode);
+    void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
   } catch (err) {
     if (version5 !== refreshVersion) return;
     console.error(err);
-    document.getElementById("eta-minutes").textContent = "\u2014";
-    document.getElementById("eta-freshness").textContent = "No pudimos actualizar el recorrido. Reintentando\u2026";
+    const card = document.querySelector(".eta-card");
+    if (card) card.innerHTML = '<div class="eta-headline">No pudimos actualizar el recorrido. Reintentando\u2026</div>';
   }
 }
-function routeViewPhase(events, studentId, direction, tripStatus) {
-  if (tripStatus === "finished" || tripStatus === "canceled") return "finished";
-  const has = (kind) => events.some((event) => event.kind === kind && event.student_id === studentId);
-  if (direction === "to_school") {
-    if (has("picked_up")) return "to_school";
-    if (has("skipped")) return "finished";
-    return "to_pickup";
-  }
-  if (has("dropped_off") || has("skipped")) return "finished";
-  return "to_home";
+function viewMode(snapshot) {
+  if (snapshot.status === null || snapshot.status === "scheduled") return "connecting";
+  if (snapshot.status === "finished" || snapshot.status === "canceled") return "finished";
+  return snapshot.isNext ? "next" : "waiting";
 }
-async function paintMap(map, phase) {
+async function paintMap(map, mode) {
   const el = document.getElementById("live-map");
   if (!el) return;
   if (!map) {
@@ -21125,48 +21129,31 @@ async function paintMap(map, phase) {
   const stopLatLng = [map.stop.lat, map.stop.lng];
   const schoolLatLng = [map.school.lat, map.school.lng];
   const vehicleLatLng = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
-  const target = mapTargetForPhase(phase);
-  const originLatLng = vehicleLatLng ?? target.fallbackOrigin(stopLatLng, schoolLatLng);
-  const destinationLatLng = target.destination(stopLatLng, schoolLatLng);
   stopMarker ?? (stopMarker = L.marker(stopLatLng, { icon: mapIcon("\u{1F3E0}") }).addTo(leafletMap));
   schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
   stopMarker.setLatLng(stopLatLng).bindPopup(`Casa: ${escapeHtml(map.stop.address)}`);
   schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
-  const routePoints = await getRoutePoints(originLatLng, destinationLatLng);
-  const linePoints = routePoints ?? [originLatLng, destinationLatLng];
-  if (!routeLine) {
-    routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
-  } else {
-    routeLine.setLatLngs(linePoints);
-  }
   if (vehicleLatLng) {
     vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
     vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}`);
   }
-  const bounds = L.latLngBounds(linePoints);
+  if (mode === "next") {
+    const originLatLng = vehicleLatLng ?? stopLatLng;
+    const routePoints = await getRoutePoints(originLatLng, stopLatLng);
+    const linePoints = routePoints ?? [originLatLng, stopLatLng];
+    if (!routeLine) {
+      routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
+    } else {
+      routeLine.setLatLngs(linePoints);
+    }
+  } else if (routeLine) {
+    routeLine.remove();
+    routeLine = null;
+  }
+  const framePoints = vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng];
+  const bounds = L.latLngBounds(framePoints);
   leafletMap.fitBounds(bounds.pad(0.25), { animate: false, maxZoom: 16 });
-  setMapFooter(map, target.label);
-}
-function mapTargetForPhase(phase) {
-  if (phase === "to_school") {
-    return {
-      label: "camino al colegio",
-      fallbackOrigin: (stop, _school) => stop,
-      destination: (_stop, school) => school
-    };
-  }
-  if (phase === "to_home" || phase === "to_pickup") {
-    return {
-      label: "camino a casa",
-      fallbackOrigin: (_stop, school) => school,
-      destination: (stop, _school) => stop
-    };
-  }
-  return {
-    label: "recorrido finalizado",
-    fallbackOrigin: (stop, _school) => stop,
-    destination: (stop, _school) => stop
-  };
+  setMapFooter(map);
 }
 async function getRoutePoints(originLatLng, destinationLatLng) {
   const mapboxToken = config.mapboxPublicToken?.trim();
@@ -21201,7 +21188,7 @@ function mapIcon(emoji, kind = "") {
     iconAnchor: [17, 17]
   });
 }
-function setMapFooter(map, targetLabel) {
+function setMapFooter(map) {
   const card = document.querySelector(".map-card");
   if (!card) return;
   let footer = document.getElementById("map-updated");
@@ -21211,7 +21198,7 @@ function setMapFooter(map, targetLabel) {
     footer.className = "map-updated";
     card.appendChild(footer);
   }
-  footer.textContent = map.vehicle ? `Furg\xF3n ${targetLabel} \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}` : "Esperando GPS del conductor";
+  footer.textContent = map.vehicle ? `Ubicaci\xF3n actualizada ${relativeTime(map.vehicle.updatedAt)}` : "Esperando GPS del conductor";
 }
 function relativeTime(iso) {
   const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1e3));
@@ -21239,25 +21226,45 @@ function subscribeRealtime(student) {
     () => void refreshOnce(student)
   ).subscribe();
 }
-function paintEta(etaSeconds, updatedAt, tripStatus, direction, phase) {
-  const routeEl = document.getElementById("eta-route");
-  if (routeEl) {
-    routeEl.textContent = direction === "to_school" ? "Ida al colegio" : "Vuelta a casa";
+function paintEtaCard(snapshot, studentId, mode) {
+  const card = document.querySelector(".eta-card");
+  if (!card) return;
+  card.classList.toggle("calm", mode !== "next");
+  const fresh = freshnessLine(snapshot);
+  if (mode === "next") {
+    const route = snapshot.direction === "to_school" ? "Ida al colegio" : "Vuelta a casa";
+    card.innerHTML = `
+      <div class="eta-route">${route}</div>
+      <div class="eta-label">El furg\xF3n va hacia tu casa</div>
+      <div class="eta-minutes">${escapeHtml(formatEtaMinutes(snapshot.etaSeconds))}</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-  const labelEl = document.querySelector(".eta-label");
-  if (labelEl) {
-    labelEl.textContent = etaLabelForPhase(phase);
+  if (mode === "waiting") {
+    const status = boardingStatusLabel(
+      boardingStatus(snapshot.events, studentId, snapshot.direction),
+      snapshot.direction
+    );
+    card.innerHTML = `
+      <div class="eta-headline">\u{1F68C} El furg\xF3n est\xE1 en recorrido</div>
+      <div class="eta-sub">El conductor est\xE1 atendiendo otras paradas. Te avisaremos cuando vaya hacia tu casa.</div>
+      <div class="eta-chip">${escapeHtml(status)}</div>
+      <div class="eta-pending">Horario de llegada pendiente de confirmar</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-  document.getElementById("eta-minutes").textContent = phase === "finished" ? "\u2014" : formatEtaMinutes(etaSeconds);
-  const state = connectionState({ tripStatus, lastEtaUpdatedAt: updatedAt, nowMs: Date.now() });
-  const freshnessEl = document.getElementById("eta-freshness");
-  freshnessEl.textContent = state === "live" ? "Actualizado hace unos segundos" : state === "stale" ? "No se actualiza hace un rato \u2014 puede que el furg\xF3n haya perdido se\xF1al" : state === "connecting" ? "Esperando que el conductor inicie el recorrido" : "Recorrido finalizado";
+  if (mode === "connecting") {
+    card.innerHTML = `<div class="eta-headline">Esperando que el conductor inicie el recorrido</div>`;
+    return;
+  }
+  const arrived = snapshot.direction === "to_school" ? "Tu hijo lleg\xF3 al colegio." : "Tu hijo lleg\xF3 a casa.";
+  card.innerHTML = `<div class="eta-headline">Recorrido finalizado</div><div class="eta-sub">${arrived}</div>`;
 }
-function etaLabelForPhase(phase) {
-  if (phase === "to_pickup") return "El furg\xF3n llega a tu casa en";
-  if (phase === "to_school") return "Tu hijo va camino al colegio";
-  if (phase === "to_home") return "Tu hijo llega a casa en";
-  return "Recorrido finalizado";
+function freshnessLine(snapshot) {
+  const v = snapshot.map?.vehicle;
+  if (v) return `Ubicaci\xF3n actualizada ${relativeTime(v.updatedAt)}`;
+  if (snapshot.status === "in_progress") return "Sin se\xF1al del furg\xF3n por ahora";
+  return "Esperando que el conductor comparta su ubicaci\xF3n";
 }
 function paintTimeline(events, student, direction) {
   const firstName = student.studentName.split(" ")[0];

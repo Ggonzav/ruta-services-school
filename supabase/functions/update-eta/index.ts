@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: trip, error: tripError } = await callerClient
     .from('trips')
-    .select('id, route_id, status')
+    .select('id, route_id, status, target_student_id')
     .eq('id', body.trip_id)
     .maybeSingle();
 
@@ -107,23 +107,32 @@ Deno.serve(async (req: Request) => {
   if (locationError) return json({ error: 'location_upsert_failed', detail: locationError.message }, 500);
 
   const doneStudentIds = new Set((doneEvents ?? []).map((e) => e.student_id));
+  const targetId = (trip as { target_student_id?: string | null }).target_student_id ?? null;
+
+  // El ETA solo existe hacia el DESTINO actual (el alumno que el conductor
+  // eligió). Sin destino, o si ya fue marcado, no hay ETA que mostrar: se
+  // limpia para que el apoderado vea "atendiendo otras paradas".
+  if (!targetId || doneStudentIds.has(targetId)) {
+    await admin.from('trip_stop_eta').delete().eq('trip_id', trip.id);
+    return json({ ok: true, target: null, stops_updated: 0 });
+  }
 
   const { data: stops, error: stopsError } = await admin
     .from('route_stops')
     .select('student_id, seq, lat, lng')
     .eq('route_id', trip.route_id)
-    .order('seq', { ascending: true });
+    .eq('student_id', targetId);
   if (stopsError) return json({ error: 'lookup_failed', detail: stopsError.message }, 500);
 
-  const remainingStops: RemainingStop[] = (stops ?? [])
-    .filter((s) => !doneStudentIds.has(s.student_id))
-    .map((s) => ({ studentId: s.student_id, seq: s.seq, lat: s.lat, lng: s.lng }));
-
-  if (remainingStops.length === 0) {
-    // A todos los que faltaban ya se les marcó subió/no viaja: no hay
-    // ETA que calcular. No es un error, sólo no hay nada que actualizar.
-    return json({ ok: true, stops_updated: 0 });
+  const targetStop = (stops ?? [])[0];
+  if (!targetStop) {
+    await admin.from('trip_stop_eta').delete().eq('trip_id', trip.id);
+    return json({ ok: true, target: targetId, stops_updated: 0 });
   }
+
+  const remainingStops: RemainingStop[] = [
+    { studentId: targetStop.student_id, seq: targetStop.seq, lat: targetStop.lat, lng: targetStop.lng },
+  ];
 
   let stopEtas;
   let etaSource: 'mapbox' | 'straight_line' = 'straight_line';
@@ -160,6 +169,10 @@ Deno.serve(async (req: Request) => {
     { onConflict: 'trip_id,student_id' }
   );
   if (upsertError) return json({ error: 'upsert_failed', detail: upsertError.message }, 500);
+
+  // Cualquier ETA de un alumno que ya no es el destino se borra, para que el
+  // apoderado de otro niño no vea minutos de un recorrido que no va hacia él.
+  await admin.from('trip_stop_eta').delete().eq('trip_id', trip.id).neq('student_id', targetId);
 
   const { data: approachingEvents, error: approachingError } = await admin
     .from('trip_events')
