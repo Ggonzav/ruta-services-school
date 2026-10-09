@@ -20964,15 +20964,6 @@ async function main() {
   renderFatalError("Este link no es v\xE1lido. Pide al transportista que te reenv\xEDe la invitaci\xF3n.");
 }
 async function handleInvite(token) {
-  const { data: existing } = await supabase.auth.getSession();
-  const already = loadRedeemedStudents();
-  if (existing.session) {
-    const known = already[0];
-    if (known) {
-      renderEtaView(known);
-      return;
-    }
-  }
   root.innerHTML = `
     <div class="invite">
       <div class="brand">\u{1F68C} RutaSegura</div>
