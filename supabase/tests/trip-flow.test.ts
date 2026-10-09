@@ -113,4 +113,61 @@ describe('flujo del conductor: start_trip / record_student_event / finish_trip',
     );
     expect(rows.rows).toHaveLength(0);
   });
+
+  it('driver_start_trip deja un solo recorrido activo por furgón (cancela el anterior)', async () => {
+    // Un furgón propio con dos rutas (ida AM y vuelta PM) el mismo día.
+    const vehicle = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ id: string }>(
+        `insert into public.vehicles (carrier_id, nickname) values ($1, 'Furgón 0010') returning id`,
+        [s.carrierA.carrierId]
+      )
+    );
+    const vehicleId = vehicle.rows[0].id;
+
+    async function createRoute(kind: 'AM' | 'PM', name: string): Promise<string> {
+      const route = await t.as(s.carrierA.userId, (db) =>
+        db.query<{ id: string }>(
+          `insert into public.routes (vehicle_id, kind, name, departure_time, school_name, school_lat, school_lng)
+           values ($1, $2, $3, '07:15', 'Colegio Los Aromos', -33.45, -70.66) returning id`,
+          [vehicleId, kind, name]
+        )
+      );
+      const routeId = route.rows[0].id;
+      await t.as(s.carrierA.userId, (db) =>
+        db.query(
+          `insert into public.route_stops (route_id, student_id, seq, address, lat, lng)
+           values ($1, $2, 1, 'Los Aromos 1420', -33.44, -70.65)`,
+          [routeId, s.martinaId]
+        )
+      );
+      return routeId;
+    }
+
+    const amRouteId = await createRoute('AM', 'Ida 0010');
+    const pmRouteId = await createRoute('PM', 'Vuelta 0010');
+    const day = '2026-01-15';
+
+    const am = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ trip_id: string }>(`select public.driver_start_trip($1, $2)->>'tripId' as trip_id`, [amRouteId, day])
+    );
+    const amTripId = am.rows[0].trip_id;
+
+    // Iniciar la vuelta en el mismo furgón debe cancelar la ida activa.
+    await t.as(s.carrierA.userId, (db) =>
+      db.query(`select public.driver_start_trip($1, $2)`, [pmRouteId, day])
+    );
+
+    const amStatus = await t.db.query<{ status: string }>(
+      `select status from public.trips where id = $1`,
+      [amTripId]
+    );
+    expect(amStatus.rows[0].status).toBe('canceled');
+
+    const active = await t.db.query(
+      `select t.id from public.trips t join public.routes r on r.id = t.route_id
+       where r.vehicle_id = $1 and t.status = 'in_progress'`,
+      [vehicleId]
+    );
+    expect(active.rows).toHaveLength(1);
+  });
 });

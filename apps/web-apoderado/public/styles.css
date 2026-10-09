@@ -188,6 +188,21 @@ h1 {
   box-shadow: 0 16px 30px -16px rgba(255, 195, 30, 0.7);
 }
 
+
+.eta-route {
+  display: inline-flex;
+  align-self: center;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(11, 42, 85, 0.11);
+  color: #10243f;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .eta-label {
   font-size: 14px;
   font-weight: 700;

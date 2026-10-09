@@ -20,23 +20,49 @@ export interface TripMapSnapshot {
   school: { lat: number; lng: number; name: string };
 }
 
+interface StopRow {
+  route_id: string;
+  lat: number;
+  lng: number;
+  address: string;
+  routes: { kind: RouteKind; school_lat: number; school_lng: number; school_name: string };
+}
+
+interface TripRow {
+  id: string;
+  route_id: string;
+  status: Exclude<TripStatus, null>;
+  started_at?: string | null;
+  created_at?: string | null;
+}
+
 export async function fetchTripSnapshot(
   client: SupabaseClient, studentId: string, now = new Date(),
 ): Promise<TripSnapshot> {
-  const { date, kind } = tripClock(now);
-  const empty: TripSnapshot = { tripId: null, direction: directionForKind(kind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null };
+  const { date, kind: clockKind } = tripClock(now);
+  const empty: TripSnapshot = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null };
+
   const { data: stops, error: stopsError } = await client.from('route_stops')
     .select('route_id, lat, lng, address, routes!inner(kind, school_lat, school_lng, school_name)')
-    .eq('student_id', studentId).eq('routes.kind', kind);
+    .eq('student_id', studentId);
   if (stopsError) throw stopsError;
   if (!stops?.length) return empty;
 
-  const { data: trip, error: tripError } = await client.from('trips')
-    .select('id, status').in('route_id', stops.map((s) => s.route_id))
-    .eq('trip_date', date).order('started_at', { ascending: false, nullsFirst: false })
-    .limit(1).maybeSingle();
+  const stopRows = stops as unknown as StopRow[];
+  const stopByRoute = new Map(stopRows.map((s) => [s.route_id, s]));
+
+  const { data: trips, error: tripError } = await client.from('trips')
+    .select('id, route_id, status, started_at, created_at')
+    .in('route_id', stopRows.map((s) => s.route_id))
+    .eq('trip_date', date)
+    .order('started_at', { ascending: false, nullsFirst: false });
   if (tripError) throw tripError;
+
+  const trip = selectRelevantTrip((trips ?? []) as TripRow[], stopByRoute, clockKind);
   if (!trip) return empty;
+
+  const stop = stopByRoute.get(trip.route_id);
+  const routeKind = stop?.routes.kind ?? clockKind;
 
   const { data: events, error: eventsError } = await client.from('trip_events')
     .select('kind, student_id, created_at').eq('trip_id', trip.id)
@@ -44,12 +70,10 @@ export async function fetchTripSnapshot(
     .order('created_at', { ascending: true });
   if (eventsError) throw eventsError;
 
-  const routeKind = (stops[0]?.routes as any)?.kind as RouteKind | undefined;
-  const stop = stops[0] as any;
   const result: TripSnapshot = {
     ...empty,
     tripId: trip.id,
-    direction: directionForKind(routeKind ?? kind),
+    direction: directionForKind(routeKind),
     status: trip.status,
     events: events ?? [],
     map: stop
@@ -61,6 +85,7 @@ export async function fetchTripSnapshot(
       : null,
   };
   if (trip.status !== 'in_progress') return result;
+
   const { data: eta, error: etaError } = await client.from('trip_stop_eta')
     .select('eta_seconds, updated_at').eq('trip_id', trip.id)
     .eq('student_id', studentId).maybeSingle();
@@ -84,4 +109,27 @@ export async function fetchTripSnapshot(
         }
       : null,
   };
+}
+
+function selectRelevantTrip(
+  trips: TripRow[],
+  stopByRoute: Map<string, StopRow>,
+  clockKind: RouteKind
+): TripRow | null {
+  const candidates = trips.filter((trip) => stopByRoute.has(trip.route_id));
+  return (
+    newest(candidates.filter((trip) => trip.status === 'in_progress'))
+    ?? newest(candidates.filter((trip) => stopByRoute.get(trip.route_id)?.routes.kind === clockKind))
+    ?? null
+  );
+}
+
+function newest(trips: TripRow[]): TripRow | null {
+  return [...trips].sort((a, b) => tripTime(b) - tripTime(a))[0] ?? null;
+}
+
+function tripTime(trip: TripRow): number {
+  const value = trip.started_at ?? trip.created_at ?? '';
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
