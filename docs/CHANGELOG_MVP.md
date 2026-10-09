@@ -43,3 +43,10 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Configuración local de Mapbox conservada; no se incluye en el commit.
 - Pendiente: revisión independiente y comprobación manual de dos invitaciones válidas en el mismo navegador tras publicar. No cambia RLS ni RPC ni requiere migración.
 - Reversión: revertir este cambio y regenerar el bundle; restauraría el defecto conocido.
+
+## 2026-10-09 — Corrección de selección de destino (PR #7)
+
+- Destino en tabla privada, getter sólo para dueño y booleano para apoderado. Se rechazan alumnos atendidos.
+- Persistencia de ETA y acercamiento atómica, con revisión del destino y bloqueo compartido con selección y marcas terminales. Requiere Edge actualizado del PR #8 antes de probar la experiencia conjunta.
+- Revisión independiente: `/root/target_review`, sin bloqueantes; casos de privacidad, permisos y generación A→B→A verificados en PGlite. Prueba física y concurrencia remota pendientes.
+- CI se ejecuta también para PRs apilados con base feature/*. Sin despliegue ni merge a develop/main.
