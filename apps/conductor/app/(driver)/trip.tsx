@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { finishTrip, markStop, setTarget } from '@/lib/tripApi';
+import { finishTrip, markStop, setTarget, getTarget } from '@/lib/tripApi';
 import { stopSharingLocation } from '@/lib/backgroundLocation';
 import { tripProgress, type Stop } from '@/lib/tripLogic';
 import { colors, radius, typography } from '@/lib/theme';
@@ -27,13 +27,13 @@ export default function TripScreen() {
   const load = useCallback(async () => {
     const { data: trip } = await supabase
       .from('trips')
-      .select('route_id, target_student_id, routes(kind)')
+      .select('route_id, routes(kind)')
       .eq('id', tripId)
       .single();
     if (!trip) return;
     const routeKind = ((trip as any).routes?.kind ?? 'AM') as RouteKind;
     setDirection(directionForKind(routeKind));
-    setTargetId(((trip as any).target_student_id ?? null) as string | null);
+    setTargetId(await getTarget(tripId));
 
     const { data: stopsRows } = await supabase
       .from('route_stops')
@@ -61,7 +61,10 @@ export default function TripScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load().catch(() => {
+        setLoading(false);
+        Alert.alert('No se pudo cargar el recorrido', 'Vuelve a abrirlo para reintentar.');
+      });
     }, [load])
   );
 
