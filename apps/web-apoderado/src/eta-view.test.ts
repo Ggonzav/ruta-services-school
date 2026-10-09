@@ -105,3 +105,25 @@ describe('connectionState', () => {
     expect(connectionState({ tripStatus: 'in_progress', lastEtaUpdatedAt, nowMs: now })).toBe('stale');
   });
 });
+
+import { boardingStatus, boardingStatusLabel } from './eta-view';
+
+describe('boardingStatus: estado del alumno sin depender del orden', () => {
+  const ev = (kind: any, student_id: string | null = 'child') => ({ kind, student_id, created_at: '2026-01-01T12:00:00Z' });
+
+  it('ida: esperando retiro antes de subir, a bordo después', () => {
+    expect(boardingStatus([ev('started', null)], 'child', 'to_school')).toBe('waiting_pickup');
+    expect(boardingStatus([ev('picked_up')], 'child', 'to_school')).toBe('on_board');
+    expect(boardingStatusLabel('waiting_pickup', 'to_school')).toBe('Esperando retiro');
+    expect(boardingStatusLabel('on_board', 'to_school')).toBe('A bordo');
+  });
+
+  it('vuelta: a bordo desde el colegio, llegó al bajar', () => {
+    expect(boardingStatus([ev('started', null)], 'child', 'to_home')).toBe('on_board');
+    expect(boardingStatus([ev('dropped_off')], 'child', 'to_home')).toBe('arrived');
+  });
+
+  it('no viaja cuenta como cerrado (arrived)', () => {
+    expect(boardingStatus([ev('skipped')], 'child', 'to_school')).toBe('arrived');
+  });
+});
