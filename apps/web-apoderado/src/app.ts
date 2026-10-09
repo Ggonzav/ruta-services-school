@@ -8,10 +8,10 @@
 // ============================================================================
 
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
-import { buildTimeline, connectionState, formatEtaMinutes, type TripEventRow } from './eta-view';
+import { buildTimeline, boardingStatus, boardingStatusLabel, formatEtaMinutes, type TripEventRow } from './eta-view';
 import { loadRedeemedStudents, saveRedeemedStudent, type RedeemedStudent } from './local-students';
 import { parseInviteToken } from './router';
-import { fetchTripSnapshot, type TripMapSnapshot, type TripStatus } from './trip-data';
+import { fetchTripSnapshot, type TripMapSnapshot, type TripSnapshot } from './trip-data';
 import { tripClock } from '../../../shared/trip-clock';
 import { kindForDirection, type RouteKind } from '../../../shared/rutasegura-api';
 
@@ -26,6 +26,7 @@ const root = document.getElementById('app')!;
 let realtimeChannel: RealtimeChannel | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let refreshVersion = 0;
+let mapVersion = 0;
 // Turno (AM/PM) del recorrido que el apoderado tiene EN PANTALLA. Se usa para
 // que "Hoy no viaja" marque la ausencia del turno correcto en vez de inferirlo
 // del reloj (si ve la ida AM pasadas las 13:00, debe marcar AM, no PM).
@@ -206,123 +207,87 @@ async function refreshOnce(student: RedeemedStudent) {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version !== refreshVersion) return;
     activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
-    const viewPhase = routeViewPhase(snapshot.events, student.studentId, snapshot.direction, snapshot.status);
-    paintEta(snapshot.etaSeconds, snapshot.updatedAt, snapshot.status, snapshot.direction, viewPhase);
-    void paintMap(snapshot.map, viewPhase);
+    const mode = viewMode(snapshot, student.studentId);
+    paintEtaCard(snapshot, student.studentId, mode);
+    void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
   } catch (err) {
     if (version !== refreshVersion) return;
     console.error(err);
-    document.getElementById('eta-minutes')!.textContent = '—';
-    document.getElementById('eta-freshness')!.textContent = 'No pudimos actualizar el recorrido. Reintentando…';
+    mapVersion++;
+    routeLine?.remove();
+    routeLine = null;
+    const card = document.querySelector('.eta-card');
+    if (card) card.innerHTML = '<div class="eta-headline">No pudimos actualizar el recorrido. Reintentando…</div>';
   }
 }
 
-type RouteViewPhase = 'to_pickup' | 'to_school' | 'to_home' | 'finished';
-
-function routeViewPhase(
-  events: TripEventRow[],
-  studentId: string,
-  direction: 'to_school' | 'to_home',
-  tripStatus: TripStatus
-): RouteViewPhase {
-  if (tripStatus === 'finished' || tripStatus === 'canceled') return 'finished';
-  const has = (kind: TripEventRow['kind']) => events.some((event) => event.kind === kind && event.student_id === studentId);
-  if (direction === 'to_school') {
-    if (has('picked_up')) return 'to_school';
-    if (has('skipped')) return 'finished';
-    return 'to_pickup';
-  }
-  if (has('dropped_off') || has('skipped')) return 'finished';
-  return 'to_home';
+type ViewMode = 'connecting' | 'finished' | 'next' | 'waiting';
+function viewMode(snapshot: TripSnapshot, studentId: string): ViewMode {
+  if (!snapshot.status || snapshot.status === 'scheduled') return 'connecting';
+  if (snapshot.status === 'finished' || snapshot.status === 'canceled') return 'finished';
+  if (snapshot.events.some(e => e.student_id === studentId && (e.kind === 'skipped' || e.kind === 'dropped_off'))) return 'finished';
+  return snapshot.isNext ? 'next' : 'waiting';
 }
-
-async function paintMap(map: TripMapSnapshot | null, phase: RouteViewPhase) {
-  const el = document.getElementById('live-map');
+async function paintMap(map: TripMapSnapshot | null, mode: ViewMode) {
+  const version = ++mapVersion;
+  if (mode !== "next" || !map?.vehicle) { routeLine?.remove(); routeLine = null; }
+  const el = document.getElementById("live-map");
   if (!el) return;
   if (!map) {
-    el.innerHTML = '<div class="map-empty">Esperando recorrido…</div>';
+    el.innerHTML = '<div class="map-empty">Esperando recorrido\u2026</div>';
     return;
   }
-
   const L = window.L;
   if (!L) {
     el.innerHTML = '<div class="map-empty">No se pudo cargar el mapa. El ETA sigue funcionando.</div>';
     return;
   }
-
   if (!leafletMap) {
-    el.innerHTML = '';
+    el.innerHTML = "";
     leafletMap = L.map(el, { zoomControl: false, attributionControl: false });
-    const mapboxToken = config.mapboxPublicToken?.trim();
-    const tileUrl = mapboxToken
-      ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(mapboxToken)}`
-      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-    const attribution = mapboxToken
-      ? '© Mapbox © OpenStreetMap'
-      : '© OpenStreetMap © CARTO';
-
+    const mapboxToken = config?.mapboxPublicToken?.trim();
+    const tileUrl = mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(mapboxToken)}` : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    const attribution = mapboxToken ? "\xA9 Mapbox \xA9 OpenStreetMap" : "\xA9 OpenStreetMap \xA9 CARTO";
     L.tileLayer(tileUrl, {
       maxZoom: 19,
-      attribution,
+      attribution
     }).addTo(leafletMap);
     L.control.attribution({ prefix: false }).addTo(leafletMap);
   }
-
   const stopLatLng = [map.stop.lat, map.stop.lng];
   const schoolLatLng = [map.school.lat, map.school.lng];
   const vehicleLatLng = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
-  const target = mapTargetForPhase(phase);
-  const originLatLng = vehicleLatLng ?? target.fallbackOrigin(stopLatLng, schoolLatLng);
-  const destinationLatLng = target.destination(stopLatLng, schoolLatLng);
-
-  stopMarker ??= L.marker(stopLatLng, { icon: mapIcon('🏠') }).addTo(leafletMap);
-  schoolMarker ??= L.marker(schoolLatLng, { icon: mapIcon('🏫') }).addTo(leafletMap);
+  stopMarker ?? (stopMarker = L.marker(stopLatLng, { icon: mapIcon("\u{1F3E0}") }).addTo(leafletMap));
+  schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
   stopMarker.setLatLng(stopLatLng).bindPopup(`Casa: ${escapeHtml(map.stop.address)}`);
   schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
-
-  const routePoints = await getRoutePoints(originLatLng, destinationLatLng);
-  const linePoints = routePoints ?? [originLatLng, destinationLatLng];
-  if (!routeLine) {
-    routeLine = L.polyline(linePoints, { color: '#0b4f9f', weight: 6, opacity: 0.9, lineCap: 'round' }).addTo(leafletMap);
-  } else {
-    routeLine.setLatLngs(linePoints);
-  }
-
   if (vehicleLatLng) {
-    vehicleMarker ??= L.marker(vehicleLatLng, { icon: mapIcon('🚌', 'vehicle') }).addTo(leafletMap);
-    vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furgón · actualizado ${relativeTime(map.vehicle!.updatedAt)}`);
+    vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
+    vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle!.updatedAt)}`);
   }
-
-  const bounds = L.latLngBounds(linePoints);
+  if (!vehicleLatLng && vehicleMarker) { vehicleMarker.remove(); vehicleMarker = null; }
+  if (mode === "next" && vehicleLatLng) {
+    const originLatLng = vehicleLatLng ?? stopLatLng;
+    const routePoints = await getRoutePoints(originLatLng, stopLatLng);
+    if (version !== mapVersion) return;
+    const linePoints = routePoints ?? [originLatLng, stopLatLng];
+    if (!routeLine) {
+      routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
+    } else {
+      routeLine.setLatLngs(linePoints);
+    }
+  } else if (routeLine) {
+    routeLine.remove();
+    routeLine = null;
+  }
+  const framePoints = vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng];
+  const bounds = L.latLngBounds(framePoints);
   leafletMap.fitBounds(bounds.pad(0.25), { animate: false, maxZoom: 16 });
-  setMapFooter(map, target.label);
+  setMapFooter(map);
 }
-
-function mapTargetForPhase(phase: RouteViewPhase) {
-  if (phase === 'to_school') {
-    return {
-      label: 'camino al colegio',
-      fallbackOrigin: (stop: number[], _school: number[]) => stop,
-      destination: (_stop: number[], school: number[]) => school,
-    };
-  }
-  if (phase === 'to_home' || phase === 'to_pickup') {
-    return {
-      label: 'camino a casa',
-      fallbackOrigin: (_stop: number[], school: number[]) => school,
-      destination: (stop: number[], _school: number[]) => stop,
-    };
-  }
-  return {
-    label: 'recorrido finalizado',
-    fallbackOrigin: (stop: number[], _school: number[]) => stop,
-    destination: (stop: number[], _school: number[]) => stop,
-  };
-}
-
 async function getRoutePoints(originLatLng: number[], destinationLatLng: number[]): Promise<[number, number][] | null> {
-  const mapboxToken = config.mapboxPublicToken?.trim();
+  const mapboxToken = config?.mapboxPublicToken?.trim();
   if (!mapboxToken) return null;
 
   const rounded = [...originLatLng, ...destinationLatLng].map((value) => value.toFixed(5)).join(',');
@@ -343,10 +308,11 @@ async function getRoutePoints(originLatLng: number[], destinationLatLng: number[
     const payload = await res.json();
     const coordinates = payload?.routes?.[0]?.geometry?.coordinates;
     if (!res.ok || !Array.isArray(coordinates)) return null;
-    routeGeometryCache = coordinates
+    const points: [number, number][] = coordinates
       .map((coord: unknown[]) => [Number(coord[1]), Number(coord[0])] as [number, number])
       .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-    return routeGeometryCache.length > 1 ? routeGeometryCache : null;
+    if (routeGeometryCacheKey === rounded) routeGeometryCache = points;
+    return points.length > 1 ? points : null;
   } catch (err) {
     console.warn('No se pudo cargar ruta Mapbox Directions', err);
     return null;
@@ -362,7 +328,7 @@ function mapIcon(emoji: string, kind = '') {
   });
 }
 
-function setMapFooter(map: TripMapSnapshot, targetLabel: string) {
+function setMapFooter(map: TripMapSnapshot) {
   const card = document.querySelector('.map-card');
   if (!card) return;
   let footer = document.getElementById('map-updated');
@@ -373,7 +339,7 @@ function setMapFooter(map: TripMapSnapshot, targetLabel: string) {
     card.appendChild(footer);
   }
   footer.textContent = map.vehicle
-    ? `Furgón ${targetLabel} · actualizado ${relativeTime(map.vehicle.updatedAt)}`
+    ? `Ubicación actualizada ${relativeTime(map.vehicle!.updatedAt)}`
     : 'Esperando GPS del conductor';
 }
 
@@ -412,38 +378,47 @@ function subscribeRealtime(student: RedeemedStudent) {
     .subscribe();
 }
 
-function paintEta(etaSeconds: number | null, updatedAt: string | null, tripStatus: TripStatus, direction: 'to_school' | 'to_home', phase: RouteViewPhase) {
-  const routeEl = document.getElementById('eta-route');
-  if (routeEl) {
-    routeEl.textContent = direction === 'to_school' ? 'Ida al colegio' : 'Vuelta a casa';
+function paintEtaCard(snapshot: TripSnapshot, studentId: string, mode: ViewMode) {
+  const card = document.querySelector(".eta-card");
+  if (!card) return;
+  card.classList.toggle("calm", mode !== "next");
+  const fresh = freshnessLine(snapshot);
+  if (mode === "next") {
+    const route = snapshot.direction === "to_school" ? "Ida al colegio" : "Vuelta a casa";
+    card.innerHTML = `
+      <div class="eta-route">${route}</div>
+      <div class="eta-label">El furg\xF3n va hacia tu casa</div>
+      <div class="eta-minutes">${escapeHtml(formatEtaMinutes(snapshot.updatedAt && Date.now() - Date.parse(snapshot.updatedAt) < 120_000 ? snapshot.etaSeconds : null))}</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-
-  const labelEl = document.querySelector('.eta-label');
-  if (labelEl) {
-    labelEl.textContent = etaLabelForPhase(phase);
+  if (mode === "waiting") {
+    const status = boardingStatusLabel(
+      boardingStatus(snapshot.events, studentId, snapshot.direction),
+      snapshot.direction
+    );
+    card.innerHTML = `
+      <div class="eta-headline">\u{1F68C} El furg\xF3n est\xE1 en recorrido</div>
+      <div class="eta-sub">El conductor est\xE1 atendiendo otras paradas. El mapa mostrará la ruta hacia tu casa cuando sea la próxima parada.</div>
+      <div class="eta-chip">${escapeHtml(status)}</div>
+      <div class="eta-pending">Horario de llegada pendiente de confirmar</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-
-  document.getElementById('eta-minutes')!.textContent = phase === 'finished' ? '—' : formatEtaMinutes(etaSeconds);
-
-  const state = connectionState({ tripStatus, lastEtaUpdatedAt: updatedAt, nowMs: Date.now() });
-  const freshnessEl = document.getElementById('eta-freshness')!;
-  freshnessEl.textContent =
-    state === 'live'
-      ? 'Actualizado hace unos segundos'
-      : state === 'stale'
-        ? 'No se actualiza hace un rato — puede que el furgón haya perdido señal'
-        : state === 'connecting'
-          ? 'Esperando que el conductor inicie el recorrido'
-          : 'Recorrido finalizado';
+  if (mode === "connecting") {
+    card.innerHTML = `<div class="eta-headline">Esperando que el conductor inicie el recorrido</div>`;
+    return;
+  }
+  const skipped = snapshot.events.some(e => e.student_id === studentId && e.kind === 'skipped');
+  const label = snapshot.status === 'canceled' ? 'Recorrido cancelado' : skipped ? 'Hoy no viaja' : 'Recorrido finalizado';
+  card.innerHTML = `<div class="eta-headline">${label}</div>`;
 }
-
-function etaLabelForPhase(phase: RouteViewPhase): string {
-  if (phase === 'to_pickup') return 'El furgón llega a tu casa en';
-  if (phase === 'to_school') return 'Tu hijo va camino al colegio';
-  if (phase === 'to_home') return 'Tu hijo llega a casa en';
-  return 'Recorrido finalizado';
+function freshnessLine(snapshot: TripSnapshot) {
+  const v = snapshot.map?.vehicle;
+  if (v) return `Ubicaci\xF3n actualizada ${relativeTime(v.updatedAt)}`;
+  if (snapshot.status === "in_progress") return "Sin se\xF1al del furg\xF3n por ahora";
+  return "Esperando que el conductor comparta su ubicaci\xF3n";
 }
-
 function paintTimeline(events: TripEventRow[], student: RedeemedStudent, direction: 'to_school' | 'to_home') {
   const firstName = student.studentName.split(' ')[0];
   const steps = buildTimeline(events, student.studentId, firstName, direction);

@@ -50,3 +50,10 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Persistencia de ETA y acercamiento atómica, con revisión del destino y bloqueo compartido con selección y marcas terminales. Requiere Edge actualizado del PR #8 antes de probar la experiencia conjunta.
 - Revisión independiente: `/root/target_review`, sin bloqueantes; casos de privacidad, permisos y generación A→B→A verificados en PGlite. Prueba física y concurrencia remota pendientes.
 - CI se ejecuta también para PRs apilados con base feature/*. Sin despliegue ni merge a develop/main.
+
+## 2026-10-09 — Corrección web y Edge (PR #8)
+
+- Estados del apoderado restaurados en TypeScript; regenerar el bundle conserva la interfaz. Se oculta ruta/ETA al cambiar destino y se descartan respuestas tardías del mapa; GPS vencido no conserva marcador anterior.
+- Edge usa driver_get_target y persist_target_eta; una respuesta Mapbox anterior no escribe ETA ni approaching después de cambiar destino.
+- Verificación: 103/103 tests, typecheck conductor y web, build web. Revisión independiente `/root/target_review`: 4/4 tests dirigidos, sin bloqueantes nuevos. PGlite verifica revisiones obsoletas; concurrencia multiconexión remota y prueba física pendientes.
+- Push 0012 sigue separado: debe revalidar destino al despachar la cola antes de su publicación. No se desplegó ni se integró a develop/main.

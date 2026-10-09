@@ -1,10 +1,10 @@
-// node_modules/@supabase/supabase-js/dist/tracingRegistry.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/supabase-js/dist/tracingRegistry.mjs
 var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
 function getTraceContextExtractor() {
   return globalThis[EXTRACTOR_KEY];
 }
 
-// node_modules/tslib/tslib.es6.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/tslib/tslib.es6.mjs
 function __rest(s, e) {
   var t = {};
   for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
@@ -44,7 +44,7 @@ function __awaiter(thisArg, _arguments, P, generator) {
   });
 }
 
-// node_modules/@supabase/functions-js/dist/module/helper.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/functions-js/dist/module/helper.js
 var resolveFetch = (customFetch) => {
   if (customFetch) {
     return (...args) => customFetch(...args);
@@ -52,7 +52,7 @@ var resolveFetch = (customFetch) => {
   return (...args) => fetch(...args);
 };
 
-// node_modules/@supabase/functions-js/dist/module/types.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/functions-js/dist/module/types.js
 var FunctionsError = class extends Error {
   constructor(message, name = "FunctionsError", context) {
     super(message);
@@ -101,7 +101,7 @@ var FunctionRegion;
   FunctionRegion2["UsWest2"] = "us-west-2";
 })(FunctionRegion || (FunctionRegion = {}));
 
-// node_modules/@supabase/functions-js/dist/module/FunctionsClient.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/functions-js/dist/module/FunctionsClient.js
 var FunctionsClient = class {
   /**
    * Creates a new Functions client bound to an Edge Functions URL.
@@ -376,7 +376,7 @@ var FunctionsClient = class {
   }
 };
 
-// node_modules/@supabase/postgrest-js/dist/index.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/postgrest-js/dist/index.mjs
 var PostgrestError = class extends Error {
   /**
   * @example
@@ -4274,7 +4274,7 @@ var PostgrestClient = class PostgrestClient2 {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js
 var WebSocketFactory = class {
   /**
    * Static-only utility – prevent instantiation.
@@ -4377,10 +4377,10 @@ Suggested solution: ${env.workaround}`;
 };
 var websocket_factory_default = WebSocketFactory;
 
-// node_modules/@supabase/realtime-js/dist/module/lib/version.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/version.js
 var version = "2.116.0";
 
-// node_modules/@supabase/realtime-js/dist/module/lib/constants.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/constants.js
 var DEFAULT_VERSION = `realtime-js/${version}`;
 var VSN_1_0_0 = "1.0.0";
 var VSN_2_0_0 = "2.0.0";
@@ -4411,7 +4411,7 @@ var CONNECTION_STATE = {
   closed: "closed"
 };
 
-// node_modules/@supabase/realtime-js/dist/module/lib/serializer.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/serializer.js
 var Serializer = class {
   constructor(allowedMetadataKeys) {
     this.HEADER_LENGTH = 1;
@@ -4558,7 +4558,7 @@ var Serializer = class {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/lib/transformers.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/transformers.js
 var PostgresTypes;
 (function(PostgresTypes2) {
   PostgresTypes2["abstime"] = "abstime";
@@ -4721,7 +4721,7 @@ var httpEndpointURL = (socketUrl) => {
   return wsUrl.href;
 };
 
-// node_modules/@supabase/phoenix/priv/static/phoenix.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/phoenix/priv/static/phoenix.mjs
 var closure = (value) => {
   if (typeof value === "function") {
     return (
@@ -6540,7 +6540,7 @@ var Socket = class {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/phoenix/presenceAdapter.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/phoenix/presenceAdapter.js
 var PresenceAdapter = class _PresenceAdapter {
   constructor(channel, opts) {
     const phoenixOptions = phoenixPresenceOptions(opts);
@@ -6632,7 +6632,7 @@ function parseCurrentPresences(currentPresences) {
   return (currentPresences === null || currentPresences === void 0 ? void 0 : currentPresences.metas) ? transformState(currentPresences) : [];
 }
 
-// node_modules/@supabase/realtime-js/dist/module/RealtimePresence.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/RealtimePresence.js
 var REALTIME_PRESENCE_LISTEN_EVENTS;
 (function(REALTIME_PRESENCE_LISTEN_EVENTS2) {
   REALTIME_PRESENCE_LISTEN_EVENTS2["SYNC"] = "sync";
@@ -6666,7 +6666,7 @@ var RealtimePresence = class {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/lib/normalizeChannelError.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/lib/normalizeChannelError.js
 function normalizeChannelError(reason) {
   if (reason instanceof Error) {
     return reason;
@@ -6685,7 +6685,7 @@ function normalizeChannelError(reason) {
   return new Error("channel error: connection lost");
 }
 
-// node_modules/@supabase/realtime-js/dist/module/phoenix/channelAdapter.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/phoenix/channelAdapter.js
 var ChannelAdapter = class {
   constructor(socket, topic, params) {
     const phoenixParams = phoenixChannelParams(params);
@@ -6784,7 +6784,7 @@ function phoenixChannelParams(options) {
   };
 }
 
-// node_modules/@supabase/realtime-js/dist/module/RealtimePostgresFilterBuilder.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/RealtimePostgresFilterBuilder.js
 var PostgrestReservedCharsRegexp2 = /[,()"\\]/;
 var needsQuoting = (value) => PostgrestReservedCharsRegexp2.test(value) || value !== value.trim();
 var quote = (value) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
@@ -6898,7 +6898,7 @@ var RealtimePostgresFilterBuilder = class {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/RealtimeChannel.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/RealtimeChannel.js
 var REALTIME_POSTGRES_CHANGES_LISTEN_EVENT;
 (function(REALTIME_POSTGRES_CHANGES_LISTEN_EVENT2) {
   REALTIME_POSTGRES_CHANGES_LISTEN_EVENT2["ALL"] = "*";
@@ -7629,7 +7629,7 @@ var RealtimeChannel = class _RealtimeChannel {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/phoenix/socketAdapter.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/phoenix/socketAdapter.js
 var SocketAdapter = class {
   constructor(endPoint, options) {
     this.socket = new Socket(endPoint, options);
@@ -7741,7 +7741,7 @@ var SocketAdapter = class {
   }
 };
 
-// node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js
 var CONNECTION_TIMEOUTS = {
   HEARTBEAT_INTERVAL: 25e3,
   RECONNECT_DELAY: 10,
@@ -8403,7 +8403,7 @@ var RealtimeClient = class {
   }
 };
 
-// node_modules/iceberg-js/dist/index.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/iceberg-js/dist/index.mjs
 var IcebergError = class extends Error {
   constructor(message, opts) {
     super(message);
@@ -8936,7 +8936,7 @@ var IcebergRestCatalog = class {
   }
 };
 
-// node_modules/@supabase/storage-js/dist/index.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/storage-js/dist/index.mjs
 function _typeof2(o) {
   "@babel/helpers - typeof";
   return _typeof2 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o$1) {
@@ -11907,10 +11907,10 @@ var StorageClient = class extends StorageBucketApi {
   }
 };
 
-// node_modules/@supabase/auth-js/dist/module/lib/version.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/version.js
 var version3 = "2.116.0";
 
-// node_modules/@supabase/auth-js/dist/module/lib/constants.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/constants.js
 var AUTO_REFRESH_TICK_DURATION_MS = 30 * 1e3;
 var AUTO_REFRESH_TICK_THRESHOLD = 3;
 var EXPIRY_MARGIN_MS = AUTO_REFRESH_TICK_THRESHOLD * AUTO_REFRESH_TICK_DURATION_MS;
@@ -11930,7 +11930,7 @@ var PKCE_FLOW_ID_PARAM = "sb_flow_id";
 var PKCE_MAX_CONCURRENT_FLOWS = 5;
 var JWKS_TTL = 10 * 60 * 1e3;
 
-// node_modules/@supabase/auth-js/dist/module/lib/errors.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/errors.js
 var AuthError = class extends Error {
   constructor(message, status, code) {
     super(message);
@@ -12053,7 +12053,7 @@ var AuthInvalidJwtError = class extends CustomAuthError {
   }
 };
 
-// node_modules/@supabase/auth-js/dist/module/lib/base64url.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/base64url.js
 var TO_BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
 var IGNORE_BASE64URL = " 	\n\r=".split("");
 var FROM_BASE64URL = (() => {
@@ -12215,7 +12215,7 @@ function bytesToBase64URL(bytes) {
   return result.join("");
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/helpers.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/helpers.js
 function expiresAt(expiresIn) {
   const timeNow = Math.round(Date.now() / 1e3);
   return timeNow + expiresIn;
@@ -12593,7 +12593,7 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/fetch.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/fetch.js
 var _getErrorMessage2 = (err) => {
   if (typeof err === "object" && err !== null) {
     const e = err;
@@ -12762,10 +12762,10 @@ function hasSession(data) {
   return !!data.access_token && !!data.refresh_token && !!data.expires_in;
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/types.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/types.js
 var SIGN_OUT_SCOPES = ["global", "local", "others"];
 
-// node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.js
 var GoTrueAdminApi = class {
   /**
    * Creates an admin API client that can be used to manage users and OAuth clients.
@@ -13839,7 +13839,7 @@ var GoTrueAdminApi = class {
   }
 };
 
-// node_modules/@supabase/auth-js/dist/module/lib/local-storage.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/local-storage.js
 function memoryLocalStorageAdapter(store = {}) {
   return {
     getItem: (key) => {
@@ -13854,7 +13854,7 @@ function memoryLocalStorageAdapter(store = {}) {
   };
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/locks.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/locks.js
 var internals = {
   /**
    * @experimental
@@ -13868,7 +13868,7 @@ var LockAcquireTimeoutError = class extends Error {
   }
 };
 
-// node_modules/@supabase/auth-js/dist/module/lib/polyfills.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/polyfills.js
 function polyfillGlobalThis() {
   if (typeof globalThis === "object")
     return;
@@ -13888,7 +13888,7 @@ function polyfillGlobalThis() {
   }
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/web3/ethereum.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/web3/ethereum.js
 function getAddress(address) {
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     throw new Error(`@supabase/auth-js: Address "${address}" is invalid.`);
@@ -13956,7 +13956,7 @@ Request ID: ${requestId}`;
 ${suffix}`;
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/webauthn.errors.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/webauthn.errors.js
 var WebAuthnError = class extends Error {
   constructor({ message, code, cause, name }) {
     var _a;
@@ -14131,7 +14131,7 @@ function identifyAuthenticationError({ error, options }) {
   });
 }
 
-// node_modules/@supabase/auth-js/dist/module/lib/webauthn.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/lib/webauthn.js
 var WebAuthnAbortService = class {
   /**
    * Create an abort signal for a new WebAuthn operation.
@@ -14654,7 +14654,7 @@ var WebAuthnApi = class {
   }
 };
 
-// node_modules/@supabase/auth-js/dist/module/GoTrueClient.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/GoTrueClient.js
 polyfillGlobalThis();
 var DEFAULT_OPTIONS = {
   url: GOTRUE_URL,
@@ -20014,11 +20014,11 @@ var GoTrueClient = class _GoTrueClient {
 GoTrueClient.nextInstanceID = {};
 var GoTrueClient_default = GoTrueClient;
 
-// node_modules/@supabase/auth-js/dist/module/AuthClient.js
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/auth-js/dist/module/AuthClient.js
 var AuthClient = GoTrueClient_default;
 var AuthClient_default = AuthClient;
 
-// node_modules/@supabase/supabase-js/dist/index.mjs
+// ../../../../../Users/gegonzalezv/Downloads/furgon-mvp/apps/web-apoderado/node_modules/@supabase/supabase-js/dist/index.mjs
 var version4 = "2.116.0";
 var JS_ENV = "";
 var JS_RUNTIME_VERSION;
@@ -20940,6 +20940,7 @@ var root = document.getElementById("app");
 var realtimeChannel = null;
 var refreshTimer;
 var refreshVersion = 0;
+var mapVersion = 0;
 var activeRouteKind = null;
 var leafletMap = null;
 var vehicleMarker = null;
@@ -21086,23 +21087,32 @@ async function refreshOnce(student) {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version5 !== refreshVersion) return;
     activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
-    const mode = viewMode(snapshot);
+    const mode = viewMode(snapshot, student.studentId);
     paintEtaCard(snapshot, student.studentId, mode);
     void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
   } catch (err) {
     if (version5 !== refreshVersion) return;
     console.error(err);
+    mapVersion++;
+    routeLine?.remove();
+    routeLine = null;
     const card = document.querySelector(".eta-card");
     if (card) card.innerHTML = '<div class="eta-headline">No pudimos actualizar el recorrido. Reintentando\u2026</div>';
   }
 }
-function viewMode(snapshot) {
-  if (snapshot.status === null || snapshot.status === "scheduled") return "connecting";
+function viewMode(snapshot, studentId) {
+  if (!snapshot.status || snapshot.status === "scheduled") return "connecting";
   if (snapshot.status === "finished" || snapshot.status === "canceled") return "finished";
+  if (snapshot.events.some((e) => e.student_id === studentId && (e.kind === "skipped" || e.kind === "dropped_off"))) return "finished";
   return snapshot.isNext ? "next" : "waiting";
 }
 async function paintMap(map, mode) {
+  const version5 = ++mapVersion;
+  if (mode !== "next" || !map?.vehicle) {
+    routeLine?.remove();
+    routeLine = null;
+  }
   const el = document.getElementById("live-map");
   if (!el) return;
   if (!map) {
@@ -21117,7 +21127,7 @@ async function paintMap(map, mode) {
   if (!leafletMap) {
     el.innerHTML = "";
     leafletMap = L.map(el, { zoomControl: false, attributionControl: false });
-    const mapboxToken = config.mapboxPublicToken?.trim();
+    const mapboxToken = config?.mapboxPublicToken?.trim();
     const tileUrl = mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(mapboxToken)}` : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
     const attribution = mapboxToken ? "\xA9 Mapbox \xA9 OpenStreetMap" : "\xA9 OpenStreetMap \xA9 CARTO";
     L.tileLayer(tileUrl, {
@@ -21137,9 +21147,14 @@ async function paintMap(map, mode) {
     vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
     vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}`);
   }
-  if (mode === "next") {
+  if (!vehicleLatLng && vehicleMarker) {
+    vehicleMarker.remove();
+    vehicleMarker = null;
+  }
+  if (mode === "next" && vehicleLatLng) {
     const originLatLng = vehicleLatLng ?? stopLatLng;
     const routePoints = await getRoutePoints(originLatLng, stopLatLng);
+    if (version5 !== mapVersion) return;
     const linePoints = routePoints ?? [originLatLng, stopLatLng];
     if (!routeLine) {
       routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
@@ -21156,7 +21171,7 @@ async function paintMap(map, mode) {
   setMapFooter(map);
 }
 async function getRoutePoints(originLatLng, destinationLatLng) {
-  const mapboxToken = config.mapboxPublicToken?.trim();
+  const mapboxToken = config?.mapboxPublicToken?.trim();
   if (!mapboxToken) return null;
   const rounded = [...originLatLng, ...destinationLatLng].map((value) => value.toFixed(5)).join(",");
   if (rounded === routeGeometryCacheKey) return routeGeometryCache;
@@ -21173,8 +21188,9 @@ async function getRoutePoints(originLatLng, destinationLatLng) {
     const payload = await res.json();
     const coordinates = payload?.routes?.[0]?.geometry?.coordinates;
     if (!res.ok || !Array.isArray(coordinates)) return null;
-    routeGeometryCache = coordinates.map((coord) => [Number(coord[1]), Number(coord[0])]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-    return routeGeometryCache.length > 1 ? routeGeometryCache : null;
+    const points = coordinates.map((coord) => [Number(coord[1]), Number(coord[0])]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+    if (routeGeometryCacheKey === rounded) routeGeometryCache = points;
+    return points.length > 1 ? points : null;
   } catch (err) {
     console.warn("No se pudo cargar ruta Mapbox Directions", err);
     return null;
@@ -21236,7 +21252,7 @@ function paintEtaCard(snapshot, studentId, mode) {
     card.innerHTML = `
       <div class="eta-route">${route}</div>
       <div class="eta-label">El furg\xF3n va hacia tu casa</div>
-      <div class="eta-minutes">${escapeHtml(formatEtaMinutes(snapshot.etaSeconds))}</div>
+      <div class="eta-minutes">${escapeHtml(formatEtaMinutes(snapshot.updatedAt && Date.now() - Date.parse(snapshot.updatedAt) < 12e4 ? snapshot.etaSeconds : null))}</div>
       <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
     return;
   }
@@ -21247,7 +21263,7 @@ function paintEtaCard(snapshot, studentId, mode) {
     );
     card.innerHTML = `
       <div class="eta-headline">\u{1F68C} El furg\xF3n est\xE1 en recorrido</div>
-      <div class="eta-sub">El conductor est\xE1 atendiendo otras paradas. Te avisaremos cuando vaya hacia tu casa.</div>
+      <div class="eta-sub">El conductor est\xE1 atendiendo otras paradas. El mapa mostrar\xE1 la ruta hacia tu casa cuando sea la pr\xF3xima parada.</div>
       <div class="eta-chip">${escapeHtml(status)}</div>
       <div class="eta-pending">Horario de llegada pendiente de confirmar</div>
       <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
@@ -21257,8 +21273,9 @@ function paintEtaCard(snapshot, studentId, mode) {
     card.innerHTML = `<div class="eta-headline">Esperando que el conductor inicie el recorrido</div>`;
     return;
   }
-  const arrived = snapshot.direction === "to_school" ? "Tu hijo lleg\xF3 al colegio." : "Tu hijo lleg\xF3 a casa.";
-  card.innerHTML = `<div class="eta-headline">Recorrido finalizado</div><div class="eta-sub">${arrived}</div>`;
+  const skipped = snapshot.events.some((e) => e.student_id === studentId && e.kind === "skipped");
+  const label = snapshot.status === "canceled" ? "Recorrido cancelado" : skipped ? "Hoy no viaja" : "Recorrido finalizado";
+  card.innerHTML = `<div class="eta-headline">${label}</div>`;
 }
 function freshnessLine(snapshot) {
   const v = snapshot.map?.vehicle;
