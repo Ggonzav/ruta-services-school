@@ -172,3 +172,10 @@ export async function createInviteLink(
   const shareText = `Hola! Te comparto el link para seguir el recorrido de ${studentFirstName}: ${url}`;
   return { url, shareText };
 }
+
+/** Destino privado, accesible únicamente al conductor dueño del recorrido. */
+export async function getTarget(tripId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('driver_get_target', { p_trip_id: tripId });
+  if (error) throw error;
+  return data?.studentId ?? null;
+}

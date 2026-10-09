@@ -2,7 +2,7 @@ name: MVP CI
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, 'feature/**']
   push:
     branches: [develop, main]
   workflow_dispatch:
