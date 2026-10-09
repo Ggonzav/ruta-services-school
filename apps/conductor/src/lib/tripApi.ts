@@ -99,6 +99,15 @@ export async function markStop(
   return { event: data.event, direction: data.direction };
 }
 
+/** El conductor declara a quién va ahora (o null para limpiar el destino). */
+export async function setTarget(tripId: string, studentId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('driver_set_target', {
+    p_trip_id: tripId,
+    p_student_id: studentId,
+  });
+  if (error) throw error;
+}
+
 export async function recordStudentEvent(
   tripId: string,
   studentId: string,
