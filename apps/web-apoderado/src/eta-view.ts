@@ -70,6 +70,32 @@ export function buildTimeline(
   ];
 }
 
+export type BoardingStatus = 'waiting_pickup' | 'on_board' | 'arrived';
+
+/**
+ * Estado del alumno según lo que registró el conductor, para mostrarlo al
+ * apoderado mientras el furgón atiende otras paradas: "Esperando retiro"
+ * (ida, antes de subir), "A bordo" (en el furgón) o "Llegó" (ya bajó / no
+ * viajó). No depende del orden de las paradas.
+ */
+export function boardingStatus(
+  events: TripEventRow[],
+  studentId: string,
+  direction: RouteDirection
+): BoardingStatus {
+  const has = (kind: TripEventRow['kind']) => events.some((e) => e.kind === kind && e.student_id === studentId);
+  if (has('dropped_off') || has('skipped')) return 'arrived';
+  if (direction === 'to_school') return has('picked_up') ? 'on_board' : 'waiting_pickup';
+  // Vuelta: el alumno sube en el colegio, va a bordo hasta que baja.
+  return 'on_board';
+}
+
+export function boardingStatusLabel(status: BoardingStatus, direction: RouteDirection): string {
+  if (status === 'on_board') return 'A bordo';
+  if (status === 'waiting_pickup') return 'Esperando retiro';
+  return direction === 'to_school' ? 'Llegó al colegio' : 'Llegó a casa';
+}
+
 function timeOf(event: TripEventRow | undefined): string | null {
   if (!event) return null;
   const d = new Date(event.created_at);

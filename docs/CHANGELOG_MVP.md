@@ -43,3 +43,44 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Configuración local de Mapbox conservada; no se incluye en el commit.
 - Pendiente: revisión independiente y comprobación manual de dos invitaciones válidas en el mismo navegador tras publicar. No cambia RLS ni RPC ni requiere migración.
 - Reversión: revertir este cambio y regenerar el bundle; restauraría el defecto conocido.
+
+## 2026-10-09 — Numeración de push (pendiente de integrar)
+
+- Push local renumerado de `0011_web_push.sql` a `0012_web_push.sql` para reservar `0011` al destino del conductor del PR #7.
+- Verificación con `supabase migration list --linked`: remotas aplicadas `0001`–`0009`; `0010` y `0011` no aplicadas. No se modificó Supabase ni se hicieron merges.
+- Integración y pruebas conjuntas con los PRs #7 y #8 pendientes; esta renumeración no certifica compatibilidad funcional.
+
+## 2026-10-17 — Integración local push + próxima parada
+
+- Rama `codex/web-push-alerts`: incorporada la base funcional de PR7/8 (`f93abbe`) a los cambios push pendientes, sin merges ni publicación. El worktree `codex/pr8-review` y sus mejoras GPS locales permanecen separados e intactos.
+- `0011_trip_target.sql` conservada exactamente como en PR8; `0012_web_push.sql` aún no aplicada añade revisión del destino a la cola y RPC privada para revalidar antes del envío.
+- Descarta avisos por cambio de alumno/revisión (también A → B → A), autorización revocada, parada completada o viaje cerrado. Error de consulta: no envía, reintenta.
+- QA local del autor: 128/128 tests aprobados; build web aprobado conservando el config.js local existente. Revisión independiente en curso; no se certifica recepción real.
+- Usuario da por validada la prueba funcional previa. Acceso iPhone a servidor LAN no comprobado; no se registra como PASS. Push físico, humo HTTPS y GPS sostenido siguen pendientes.
+- Límites: un aviso en tránsito no puede retirarse del proveedor; un evento approaching por alumno/viaje; un nuevo cálculo cercano permite un aviso por nueva revisión de destino. Ver PUSH.md.
+
+## 2026-10-18 — Verificación de integración push
+
+- QA final local del autor: `npm test`, 21 archivos / 129 tests aprobados. Incluye retorno A → B → A: nuevo ETA cercano permite un aviso para nueva revisión; ETA antiguo o lejano no envía y ticks repetidos no duplican.
+- Migración 0011 comparada byte a byte con `f93abbe`: idéntica. `git diff --check` sin errores. Build web y TypeScript web/conductor aprobados el turno anterior; posteriores cambios limitados a SQL, tests y documentación.
+- Captura aportada por el usuario: conductor con “Ubicación recibida”, progreso 1/2, Martina pendiente. Evidencia puntual de recepción, no de GPS continuo en segundo plano ni de entrega push.
+- Segunda revisión independiente solicitada para la corrección P2; pendiente de resultado al escribir esta entrada. Sin publicación, merge ni cambios remotos.
+
+- Revisión independiente final: P2 aprobado por `/root/push_target_integration_review`, 28/28 tests enfocados. Sin nuevos bloqueantes en delta; proveedor/recepción real pendientes. Evidencia: `docs/reviews/PUSH-TARGET-INTEGRATION.md`.
+
+
+## 2026-10-14 — Primera ubicación, reintentos y web local (codex/pr8-review)
+
+- El conductor captura al iniciar/reanudar. Confirma “Ubicación recibida” sólo con `ok: true` de la Edge; errores o posición vencida retiran la confirmación. Reintentos con captura fresca en primer plano y mediante eventos nativos en segundo plano, sin garantizar intervalos de iOS suspendido.
+- Timeouts y protección contra envíos concurrentes/respuestas de viajes anteriores. Sin cambios de RLS, contratos RPC, Edge ni push.
+- `npm run local` de web genera y sirve un build aislado en `dist/local`, conservando la configuración pública de Mapbox desde un archivo local sin imprimir valores ni modificarlo.
+- Evidencia: 111/111 tests, typechecks conductor/web y build web con Mapbox aprobados; rutas locales y assets devuelven HTTP 200. Procedimiento y limitaciones en [QA_GPS_WEB_LOCAL.md](QA_GPS_WEB_LOCAL.md).
+- Pendientes: build iOS, validación física con dos apoderados y revisión independiente. No se hizo merge, despliegue ni reinicio de datos.
+- Reversión: revertir estos cambios del cliente y reconstruir; detener servidor local. No hay cambios remotos que revertir.
+
+## 2026-10-19 — Respaldo integrado para revisión
+
+- Rama `codex/mvp-integration`: reúne próxima parada de PR7/8, push pendiente y GPS/servidor local del worktree `codex/pr8-review`. No reemplaza todavía develop/main ni cierra los PR anteriores.
+- QA del autor: 137/137 tests; build web, TypeScript web/conductor y diff-check aprobados. Configuración local conservada y excluida del commit; .env y secretos ignorados.
+- Entrega en borrador: pendiente recepción push real, GPS sostenido con pantalla bloqueada y humo del entorno público. No se ejecutaron despliegues ni cambios remotos de configuración/datos.
+- Siguiente alcance autorizado: pantalla Mis alumnos (agregar, editar y asignar rutas), aún sin implementar en este respaldo.

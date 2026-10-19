@@ -17,6 +17,7 @@ if (mapboxPublicToken && !mapboxPublicToken.startsWith('pk.')) {
 const config = {
   supabaseUrl,
   supabaseAnonKey,
+  ...(process.env.VAPID_PUBLIC_KEY ? { vapidPublicKey: process.env.VAPID_PUBLIC_KEY } : {}),
   ...(mapboxPublicToken ? { mapboxPublicToken } : {}),
 };
 

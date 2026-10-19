@@ -6,9 +6,8 @@
 // Mapbox y guarda sólo la ÚLTIMA ubicación del furgón por recorrido en
 // trip_vehicle_location, sin historial. Esa coordenada se borra al finalizar
 // y RLS sólo la expone a apoderados de ese recorrido cuando está fresca. El
-// ETA por alumno persiste en trip_stop_eta, con la service role key (bypassa
-// RLS a propósito: esta función SÍ necesita ver todas las paradas del
-// recorrido para pedirle a Mapbox la ruta completa).
+// ETA se guarda mediante una RPC privada que valida el destino y su revisión
+// bajo bloqueo antes de persistir ETA y generar el evento approaching.
 //
 // Deploy: supabase functions deploy update-eta
 // Config: supabase secrets set MAPBOX_ACCESS_TOKEN=...
@@ -19,7 +18,6 @@ import {
   buildDirectionsUrl,
   computeStopEtas,
   computeStraightLineStopEtas,
-  studentsNewlyApproaching,
   type DirectionsResponse,
   type RemainingStop,
 } from './eta-logic.ts';
@@ -79,19 +77,18 @@ Deno.serve(async (req: Request) => {
   if (!trip) return json({ error: 'trip_not_found_or_not_yours' }, 404);
   if (trip.status !== 'in_progress') return json({ error: 'trip_not_in_progress' }, 409);
 
-  // A partir de aquí usamos la service role key: necesitamos ver TODAS
-  // las paradas restantes del recorrido para pedirle la ruta a Mapbox,
-  // algo que RLS le niega a un "authenticated" normal (a propósito).
+  // La service role persiste GPS y calcula el ETA exclusivamente al destino
+  // elegido; la RPC de persistencia vuelve a validar la revisión del destino.
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
 
-  const { data: doneEvents, error: doneError } = await admin
-    .from('trip_events')
-    .select('student_id, kind')
-    .eq('trip_id', trip.id)
-    .in('kind', ['picked_up', 'dropped_off', 'skipped']);
-  if (doneError) return json({ error: 'lookup_failed', detail: doneError.message }, 500);
+  const { data: target, error: targetError } = await callerClient.rpc('driver_get_target', {
+    p_trip_id: trip.id,
+  });
+  if (targetError) return json({ error: 'target_lookup_failed' }, 500);
+  const targetId: string | null = target?.studentId ?? null;
+  const targetRevision: number = target?.revision ?? 0;
 
   const { error: locationError } = await admin.from('trip_vehicle_location').upsert(
     {
@@ -106,24 +103,25 @@ Deno.serve(async (req: Request) => {
   );
   if (locationError) return json({ error: 'location_upsert_failed', detail: locationError.message }, 500);
 
-  const doneStudentIds = new Set((doneEvents ?? []).map((e) => e.student_id));
+  // Selection RPC clears obsolete ETAs; an old GPS request must never delete
+  // an ETA saved by a newer destination generation.
+  if (!targetId) return json({ ok: true, target: null, stops_updated: 0 });
 
   const { data: stops, error: stopsError } = await admin
     .from('route_stops')
     .select('student_id, seq, lat, lng')
     .eq('route_id', trip.route_id)
-    .order('seq', { ascending: true });
+    .eq('student_id', targetId);
   if (stopsError) return json({ error: 'lookup_failed', detail: stopsError.message }, 500);
 
-  const remainingStops: RemainingStop[] = (stops ?? [])
-    .filter((s) => !doneStudentIds.has(s.student_id))
-    .map((s) => ({ studentId: s.student_id, seq: s.seq, lat: s.lat, lng: s.lng }));
-
-  if (remainingStops.length === 0) {
-    // A todos los que faltaban ya se les marcó subió/no viaja: no hay
-    // ETA que calcular. No es un error, sólo no hay nada que actualizar.
-    return json({ ok: true, stops_updated: 0 });
+  const targetStop = (stops ?? [])[0];
+  if (!targetStop) {
+    return json({ ok: true, target: targetId, stops_updated: 0 });
   }
+
+  const remainingStops: RemainingStop[] = [
+    { studentId: targetStop.student_id, seq: targetStop.seq, lat: targetStop.lat, lng: targetStop.lng },
+  ];
 
   let stopEtas;
   let etaSource: 'mapbox' | 'straight_line' = 'straight_line';
@@ -150,47 +148,16 @@ Deno.serve(async (req: Request) => {
     remainingStops,
   });
 
-  const { error: upsertError } = await admin.from('trip_stop_eta').upsert(
-    stopEtas.map((s) => ({
-      trip_id: trip.id,
-      student_id: s.studentId,
-      eta_seconds: s.etaSeconds,
-      updated_at: new Date().toISOString(),
-    })),
-    { onConflict: 'trip_id,student_id' }
-  );
-  if (upsertError) return json({ error: 'upsert_failed', detail: upsertError.message }, 500);
-
-  const { data: approachingEvents, error: approachingError } = await admin
-    .from('trip_events')
-    .select('student_id')
-    .eq('trip_id', trip.id)
-    .eq('kind', 'approaching');
-  if (approachingError) return json({ error: 'lookup_failed', detail: approachingError.message }, 500);
-
-  const alreadyNotified = new Set((approachingEvents ?? []).map((e) => e.student_id as string));
-  const newlyApproaching = studentsNewlyApproaching(stopEtas, alreadyNotified);
-
-  if (newlyApproaching.length > 0) {
-    // Este insert es lo que un trigger (fuera del alcance del MVP, ver
-    // docs/ARQUITECTURA.md) convierte en push "El furgón de X está cerca".
-    // Se inserta de a uno porque el índice unique de approaching es parcial;
-    // PostgREST no puede resolver un upsert limpio contra ese índice. Si dos
-    // ticks compiten, ignoramos 23505 y el resto de alumnos sigue notificándose.
-    for (const studentId of newlyApproaching) {
-      const { error: approachingInsertError } = await admin.from('trip_events').insert({
-        trip_id: trip.id,
-        student_id: studentId,
-        kind: 'approaching',
-      });
-
-      if (approachingInsertError && approachingInsertError.code !== '23505') {
-        return json({ error: 'approaching_insert_failed', detail: approachingInsertError.message }, 500);
-      }
-    }
-  }
-
-  return json({ ok: true, eta_source: etaSource, stops_updated: stopEtas.length, newly_approaching: newlyApproaching });
+  const eta = stopEtas[0];
+  const { data: saved, error: saveError } = await admin.rpc('persist_target_eta', {
+    p_trip_id: trip.id,
+    p_student_id: targetId,
+    p_revision: targetRevision,
+    p_eta_seconds: eta.etaSeconds,
+    p_distance_meters: eta.distanceMeters,
+  });
+  if (saveError) return json({ error: 'eta_persist_failed' }, 500);
+  return json({ ok: true, eta_source: etaSource, stops_updated: saved ? 1 : 0, stale: !saved });
 });
 
 function json(body: unknown, status = 200): Response {

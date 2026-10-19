@@ -20792,6 +20792,17 @@ function buildTimeline(events, studentId, studentFirstName, direction = "to_scho
     }
   ];
 }
+function boardingStatus(events, studentId, direction) {
+  const has = (kind) => events.some((e) => e.kind === kind && e.student_id === studentId);
+  if (has("dropped_off") || has("skipped")) return "arrived";
+  if (direction === "to_school") return has("picked_up") ? "on_board" : "waiting_pickup";
+  return "on_board";
+}
+function boardingStatusLabel(status, direction) {
+  if (status === "on_board") return "A bordo";
+  if (status === "waiting_pickup") return "Esperando retiro";
+  return direction === "to_school" ? "Lleg\xF3 al colegio" : "Lleg\xF3 a casa";
+}
 function timeOf(event) {
   if (!event) return null;
   const d = new Date(event.created_at);
@@ -20803,13 +20814,6 @@ function formatEtaMinutes(etaSeconds) {
   const minutes = Math.round(etaSeconds / 60);
   if (minutes <= 0) return "menos de 1 min";
   return `${minutes} min`;
-}
-function connectionState(params) {
-  const { tripStatus, lastEtaUpdatedAt, nowMs, staleAfterMs = 9e4 } = params;
-  if (tripStatus === "finished" || tripStatus === "canceled") return "ended";
-  if (!lastEtaUpdatedAt) return "connecting";
-  const age = nowMs - new Date(lastEtaUpdatedAt).getTime();
-  return age > staleAfterMs ? "stale" : "live";
 }
 
 // src/local-students.ts
@@ -20834,6 +20838,50 @@ function saveRedeemedStudent(student, storage = localStorage) {
   const updated = upsertStudent(loadRedeemedStudents(storage), student);
   storage.setItem(STORAGE_KEY2, JSON.stringify(updated));
   return updated;
+}
+
+// src/push.ts
+function decodeVapidKey(key) {
+  if (!/^[A-Za-z0-9_-]{87}=?$/.test(key)) throw new Error("La configuraci\xF3n de avisos todav\xEDa no est\xE1 disponible.");
+  const bytes = atob(key.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - key.length % 4) % 4));
+  return Uint8Array.from(bytes, (c) => c.charCodeAt(0));
+}
+function pushSupportMessage() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  if (ios && !window.matchMedia("(display-mode: standalone)").matches) {
+    return "En iPhone/iPad: Compartir \u2192 Agregar a pantalla de inicio. Abre RutaSegura desde ese icono y activa los avisos all\xED. Si te pide una invitaci\xF3n, abre el enlace de tu alumno en esa app.";
+  }
+  if (!window.isSecureContext || !("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return "Este navegador no permite avisos push. Usa un navegador compatible; mientras tanto, consulta el estado en esta p\xE1gina.";
+  }
+  return null;
+}
+async function enablePush(client, studentId, publicKey) {
+  const unsupported = pushSupportMessage();
+  if (unsupported) throw new Error(unsupported);
+  const key = decodeVapidKey(publicKey ?? "");
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error("Los avisos est\xE1n bloqueados. Perm\xEDtelos en la configuraci\xF3n del navegador para este sitio.");
+  await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: new Uint8Array(key).buffer });
+  const data = subscription.toJSON();
+  const { error } = await client.rpc("register_push_subscription", {
+    p_student_id: studentId,
+    p_endpoint: data.endpoint,
+    p_p256dh: data.keys?.p256dh,
+    p_auth: data.keys?.auth
+  });
+  if (error) throw new Error("No pudimos guardar los avisos. Reabre la invitaci\xF3n de este alumno e int\xE9ntalo nuevamente.");
+}
+async function disablePush(client, studentId) {
+  if (!("serviceWorker" in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration("/");
+  const subscription = await registration?.pushManager.getSubscription();
+  if (!subscription) return;
+  const { error } = await client.rpc("unregister_push_subscription", { p_student_id: studentId, p_endpoint: subscription.endpoint });
+  if (error) throw new Error("No pudimos desactivar los avisos. Int\xE9ntalo nuevamente.");
 }
 
 // src/router.ts
@@ -20871,7 +20919,7 @@ function kindForDirection(direction) {
 // src/trip-data.ts
 async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Date()) {
   const { date, kind: clockKind } = tripClock(now);
-  const empty = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null };
+  const empty = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null, isNext: false };
   const { data: stops, error: stopsError } = await client.from("route_stops").select("route_id, lat, lng, address, routes!inner(kind, school_lat, school_lng, school_name)").eq("student_id", studentId);
   if (stopsError) throw stopsError;
   if (!stops?.length) return empty;
@@ -20902,8 +20950,14 @@ async function fetchTripSnapshot(client, studentId, now = /* @__PURE__ */ new Da
   if (etaError) throw etaError;
   const { data: vehicleLocation, error: vehicleError } = await client.from("trip_vehicle_location").select("lat, lng, updated_at").eq("trip_id", trip.id).gt("updated_at", new Date(Date.now() - 2 * 6e4).toISOString()).maybeSingle();
   if (vehicleError) throw vehicleError;
+  const { data: isNextData, error: isNextError } = await client.rpc("guardian_is_next", {
+    p_trip_id: trip.id,
+    p_student_id: studentId
+  });
+  if (isNextError) throw isNextError;
   return {
     ...result,
+    isNext: isNextData === true,
     etaSeconds: eta?.eta_seconds ?? null,
     updatedAt: eta?.updated_at ?? null,
     map: result.map ? {
@@ -20930,6 +20984,7 @@ var root = document.getElementById("app");
 var realtimeChannel = null;
 var refreshTimer;
 var refreshVersion = 0;
+var mapVersion = 0;
 var activeRouteKind = null;
 var leafletMap = null;
 var vehicleMarker = null;
@@ -20954,6 +21009,16 @@ async function main() {
   const inviteToken = parseInviteToken(window.location.pathname);
   if (inviteToken) {
     await handleInvite(inviteToken);
+    return;
+  }
+  const requestedStudent = new URLSearchParams(window.location.search).get("student");
+  if (requestedStudent) {
+    const { data, error } = await supabase.from("students").select("id, full_name").eq("id", requestedStudent).maybeSingle();
+    if (error || !data) {
+      renderFatalError("Abre la invitaci\xF3n de este alumno para acceder a su recorrido en este dispositivo.");
+      return;
+    }
+    renderEtaView({ studentId: data.id, studentName: data.full_name, routeName: "", schoolName: "", redeemedAt: (/* @__PURE__ */ new Date()).toISOString() });
     return;
   }
   const stored = loadRedeemedStudents();
@@ -21049,6 +21114,8 @@ function renderEtaView(student) {
       <div class="push-card">
         <div class="push-title">Recibe avisos aunque cierres esta p\xE1gina</div>
         <button id="enable-notifications">Activar avisos</button>
+        <button id="disable-notifications" class="secondary">Desactivar avisos de este alumno</button>
+        <p id="push-status" class="muted small" role="status" aria-live="polite"></p>
         <p class="muted small">En iPhone, primero agrega esta p\xE1gina a tu pantalla de inicio.</p>
       </div>
       <div class="absence-card">
@@ -21063,7 +21130,8 @@ function renderEtaView(student) {
   stopMarker = null;
   schoolMarker = null;
   routeLine = null;
-  document.getElementById("enable-notifications").addEventListener("click", enableBestEffortNotifications);
+  document.getElementById("enable-notifications").addEventListener("click", () => void changePush(student.studentId, true));
+  document.getElementById("disable-notifications").addEventListener("click", () => void changePush(student.studentId, false));
   document.getElementById("mark-absence").addEventListener("click", () => markAbsence(student.studentId));
   clearInterval(refreshTimer);
   void refreshOnce(student);
@@ -21076,29 +21144,32 @@ async function refreshOnce(student) {
     const snapshot = await fetchTripSnapshot(supabase, student.studentId);
     if (version5 !== refreshVersion) return;
     activeRouteKind = snapshot.tripId ? kindForDirection(snapshot.direction) : null;
-    const viewPhase = routeViewPhase(snapshot.events, student.studentId, snapshot.direction, snapshot.status);
-    paintEta(snapshot.etaSeconds, snapshot.updatedAt, snapshot.status, snapshot.direction, viewPhase);
-    void paintMap(snapshot.map, viewPhase);
+    const mode = viewMode(snapshot, student.studentId);
+    paintEtaCard(snapshot, student.studentId, mode);
+    void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
   } catch (err) {
     if (version5 !== refreshVersion) return;
     console.error(err);
-    document.getElementById("eta-minutes").textContent = "\u2014";
-    document.getElementById("eta-freshness").textContent = "No pudimos actualizar el recorrido. Reintentando\u2026";
+    mapVersion++;
+    routeLine?.remove();
+    routeLine = null;
+    const card = document.querySelector(".eta-card");
+    if (card) card.innerHTML = '<div class="eta-headline">No pudimos actualizar el recorrido. Reintentando\u2026</div>';
   }
 }
-function routeViewPhase(events, studentId, direction, tripStatus) {
-  if (tripStatus === "finished" || tripStatus === "canceled") return "finished";
-  const has = (kind) => events.some((event) => event.kind === kind && event.student_id === studentId);
-  if (direction === "to_school") {
-    if (has("picked_up")) return "to_school";
-    if (has("skipped")) return "finished";
-    return "to_pickup";
-  }
-  if (has("dropped_off") || has("skipped")) return "finished";
-  return "to_home";
+function viewMode(snapshot, studentId) {
+  if (!snapshot.status || snapshot.status === "scheduled") return "connecting";
+  if (snapshot.status === "finished" || snapshot.status === "canceled") return "finished";
+  if (snapshot.events.some((e) => e.student_id === studentId && (e.kind === "skipped" || e.kind === "dropped_off"))) return "finished";
+  return snapshot.isNext ? "next" : "waiting";
 }
-async function paintMap(map, phase) {
+async function paintMap(map, mode) {
+  const version5 = ++mapVersion;
+  if (mode !== "next" || !map?.vehicle) {
+    routeLine?.remove();
+    routeLine = null;
+  }
   const el = document.getElementById("live-map");
   if (!el) return;
   if (!map) {
@@ -21113,7 +21184,7 @@ async function paintMap(map, phase) {
   if (!leafletMap) {
     el.innerHTML = "";
     leafletMap = L.map(el, { zoomControl: false, attributionControl: false });
-    const mapboxToken = config.mapboxPublicToken?.trim();
+    const mapboxToken = config?.mapboxPublicToken?.trim();
     const tileUrl = mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(mapboxToken)}` : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
     const attribution = mapboxToken ? "\xA9 Mapbox \xA9 OpenStreetMap" : "\xA9 OpenStreetMap \xA9 CARTO";
     L.tileLayer(tileUrl, {
@@ -21125,51 +21196,39 @@ async function paintMap(map, phase) {
   const stopLatLng = [map.stop.lat, map.stop.lng];
   const schoolLatLng = [map.school.lat, map.school.lng];
   const vehicleLatLng = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
-  const target = mapTargetForPhase(phase);
-  const originLatLng = vehicleLatLng ?? target.fallbackOrigin(stopLatLng, schoolLatLng);
-  const destinationLatLng = target.destination(stopLatLng, schoolLatLng);
   stopMarker ?? (stopMarker = L.marker(stopLatLng, { icon: mapIcon("\u{1F3E0}") }).addTo(leafletMap));
   schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
   stopMarker.setLatLng(stopLatLng).bindPopup(`Casa: ${escapeHtml(map.stop.address)}`);
   schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
-  const routePoints = await getRoutePoints(originLatLng, destinationLatLng);
-  const linePoints = routePoints ?? [originLatLng, destinationLatLng];
-  if (!routeLine) {
-    routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
-  } else {
-    routeLine.setLatLngs(linePoints);
-  }
   if (vehicleLatLng) {
     vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
     vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}`);
   }
-  const bounds = L.latLngBounds(linePoints);
+  if (!vehicleLatLng && vehicleMarker) {
+    vehicleMarker.remove();
+    vehicleMarker = null;
+  }
+  if (mode === "next" && vehicleLatLng) {
+    const originLatLng = vehicleLatLng ?? stopLatLng;
+    const routePoints = await getRoutePoints(originLatLng, stopLatLng);
+    if (version5 !== mapVersion) return;
+    const linePoints = routePoints ?? [originLatLng, stopLatLng];
+    if (!routeLine) {
+      routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
+    } else {
+      routeLine.setLatLngs(linePoints);
+    }
+  } else if (routeLine) {
+    routeLine.remove();
+    routeLine = null;
+  }
+  const framePoints = vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng];
+  const bounds = L.latLngBounds(framePoints);
   leafletMap.fitBounds(bounds.pad(0.25), { animate: false, maxZoom: 16 });
-  setMapFooter(map, target.label);
-}
-function mapTargetForPhase(phase) {
-  if (phase === "to_school") {
-    return {
-      label: "camino al colegio",
-      fallbackOrigin: (stop, _school) => stop,
-      destination: (_stop, school) => school
-    };
-  }
-  if (phase === "to_home" || phase === "to_pickup") {
-    return {
-      label: "camino a casa",
-      fallbackOrigin: (_stop, school) => school,
-      destination: (stop, _school) => stop
-    };
-  }
-  return {
-    label: "recorrido finalizado",
-    fallbackOrigin: (stop, _school) => stop,
-    destination: (stop, _school) => stop
-  };
+  setMapFooter(map);
 }
 async function getRoutePoints(originLatLng, destinationLatLng) {
-  const mapboxToken = config.mapboxPublicToken?.trim();
+  const mapboxToken = config?.mapboxPublicToken?.trim();
   if (!mapboxToken) return null;
   const rounded = [...originLatLng, ...destinationLatLng].map((value) => value.toFixed(5)).join(",");
   if (rounded === routeGeometryCacheKey) return routeGeometryCache;
@@ -21186,8 +21245,9 @@ async function getRoutePoints(originLatLng, destinationLatLng) {
     const payload = await res.json();
     const coordinates = payload?.routes?.[0]?.geometry?.coordinates;
     if (!res.ok || !Array.isArray(coordinates)) return null;
-    routeGeometryCache = coordinates.map((coord) => [Number(coord[1]), Number(coord[0])]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-    return routeGeometryCache.length > 1 ? routeGeometryCache : null;
+    const points = coordinates.map((coord) => [Number(coord[1]), Number(coord[0])]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+    if (routeGeometryCacheKey === rounded) routeGeometryCache = points;
+    return points.length > 1 ? points : null;
   } catch (err) {
     console.warn("No se pudo cargar ruta Mapbox Directions", err);
     return null;
@@ -21201,7 +21261,7 @@ function mapIcon(emoji, kind = "") {
     iconAnchor: [17, 17]
   });
 }
-function setMapFooter(map, targetLabel) {
+function setMapFooter(map) {
   const card = document.querySelector(".map-card");
   if (!card) return;
   let footer = document.getElementById("map-updated");
@@ -21211,7 +21271,7 @@ function setMapFooter(map, targetLabel) {
     footer.className = "map-updated";
     card.appendChild(footer);
   }
-  footer.textContent = map.vehicle ? `Furg\xF3n ${targetLabel} \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}` : "Esperando GPS del conductor";
+  footer.textContent = map.vehicle ? `Ubicaci\xF3n actualizada ${relativeTime(map.vehicle.updatedAt)}` : "Esperando GPS del conductor";
 }
 function relativeTime(iso) {
   const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1e3));
@@ -21239,25 +21299,46 @@ function subscribeRealtime(student) {
     () => void refreshOnce(student)
   ).subscribe();
 }
-function paintEta(etaSeconds, updatedAt, tripStatus, direction, phase) {
-  const routeEl = document.getElementById("eta-route");
-  if (routeEl) {
-    routeEl.textContent = direction === "to_school" ? "Ida al colegio" : "Vuelta a casa";
+function paintEtaCard(snapshot, studentId, mode) {
+  const card = document.querySelector(".eta-card");
+  if (!card) return;
+  card.classList.toggle("calm", mode !== "next");
+  const fresh = freshnessLine(snapshot);
+  if (mode === "next") {
+    const route = snapshot.direction === "to_school" ? "Ida al colegio" : "Vuelta a casa";
+    card.innerHTML = `
+      <div class="eta-route">${route}</div>
+      <div class="eta-label">El furg\xF3n va hacia tu casa</div>
+      <div class="eta-minutes">${escapeHtml(formatEtaMinutes(snapshot.updatedAt && Date.now() - Date.parse(snapshot.updatedAt) < 12e4 ? snapshot.etaSeconds : null))}</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-  const labelEl = document.querySelector(".eta-label");
-  if (labelEl) {
-    labelEl.textContent = etaLabelForPhase(phase);
+  if (mode === "waiting") {
+    const status = boardingStatusLabel(
+      boardingStatus(snapshot.events, studentId, snapshot.direction),
+      snapshot.direction
+    );
+    card.innerHTML = `
+      <div class="eta-headline">\u{1F68C} El furg\xF3n est\xE1 en recorrido</div>
+      <div class="eta-sub">El conductor est\xE1 atendiendo otras paradas. El mapa mostrar\xE1 la ruta hacia tu casa cuando sea la pr\xF3xima parada.</div>
+      <div class="eta-chip">${escapeHtml(status)}</div>
+      <div class="eta-pending">Horario de llegada pendiente de confirmar</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
   }
-  document.getElementById("eta-minutes").textContent = phase === "finished" ? "\u2014" : formatEtaMinutes(etaSeconds);
-  const state = connectionState({ tripStatus, lastEtaUpdatedAt: updatedAt, nowMs: Date.now() });
-  const freshnessEl = document.getElementById("eta-freshness");
-  freshnessEl.textContent = state === "live" ? "Actualizado hace unos segundos" : state === "stale" ? "No se actualiza hace un rato \u2014 puede que el furg\xF3n haya perdido se\xF1al" : state === "connecting" ? "Esperando que el conductor inicie el recorrido" : "Recorrido finalizado";
+  if (mode === "connecting") {
+    card.innerHTML = `<div class="eta-headline">Esperando que el conductor inicie el recorrido</div>`;
+    return;
+  }
+  const skipped = snapshot.events.some((e) => e.student_id === studentId && e.kind === "skipped");
+  const label = snapshot.status === "canceled" ? "Recorrido cancelado" : skipped ? "Hoy no viaja" : "Recorrido finalizado";
+  card.innerHTML = `<div class="eta-headline">${label}</div>`;
 }
-function etaLabelForPhase(phase) {
-  if (phase === "to_pickup") return "El furg\xF3n llega a tu casa en";
-  if (phase === "to_school") return "Tu hijo va camino al colegio";
-  if (phase === "to_home") return "Tu hijo llega a casa en";
-  return "Recorrido finalizado";
+function freshnessLine(snapshot) {
+  const v = snapshot.map?.vehicle;
+  if (v) return `Ubicaci\xF3n actualizada ${relativeTime(v.updatedAt)}`;
+  if (snapshot.status === "in_progress") return "Sin se\xF1al del furg\xF3n por ahora";
+  return "Esperando que el conductor comparta su ubicaci\xF3n";
 }
 function paintTimeline(events, student, direction) {
   const firstName = student.studentName.split(" ")[0];
@@ -21272,14 +21353,20 @@ function paintTimeline(events, student, direction) {
         </div>`
   ).join("");
 }
-async function enableBestEffortNotifications() {
-  if (!("Notification" in window)) {
-    alert("Este navegador no soporta notificaciones. Te recomendamos dejar la pesta\xF1a abierta.");
-    return;
+async function changePush(studentId, enabled) {
+  const status = document.getElementById("push-status");
+  const buttons = ["enable-notifications", "disable-notifications"].map((id) => document.getElementById(id));
+  buttons.forEach((button) => button.setAttribute("disabled", "true"));
+  status.textContent = enabled ? "Activando avisos\u2026" : "Desactivando avisos\u2026";
+  try {
+    if (enabled) await enablePush(supabase, studentId, config?.vapidPublicKey);
+    else await disablePush(supabase, studentId);
+    status.textContent = enabled ? "Avisos activados para este alumno en este dispositivo, incluso con la p\xE1gina cerrada." : "Avisos desactivados para este alumno en este dispositivo.";
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "No se pudo cambiar la configuraci\xF3n de avisos.";
+  } finally {
+    buttons.forEach((button) => button.removeAttribute("disabled"));
   }
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return;
-  new Notification("Listo", { body: "Te avisaremos mientras tengas esta p\xE1gina abierta." });
 }
 async function markAbsence(studentId) {
   const { date: today, kind: clockKind } = tripClock();
