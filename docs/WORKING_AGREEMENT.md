@@ -8,7 +8,9 @@ Validar que el transportista pague por permitir a las familias conocer el estado
 
 Incluye inicio y cierre de ida/vuelta (AM/PM), marcas Subió/Bajó/No viaja según fase, estado/ETA/mapa/avisos básicos del apoderado, invitaciones, demo con datos de prueba, web publicada y backend Supabase con RPC y Edge Functions. Esta lista define alcance, no certifica que cada función esté validada.
 
-Quedan fuera por ahora microservicios, app nativa de apoderado, push con la app cerrada, optimización avanzada, múltiples colegios/empresas complejos, pagos, contratos y administración completa. IA no se incorpora sin un caso de uso aprobado que aporte al objetivo.
+Quedan fuera por ahora microservicios, app nativa de apoderado, optimización avanzada, múltiples colegios/empresas complejos, pagos, contratos y administración completa. IA no se incorpora sin un caso de uso aprobado que aporte al objetivo.
+
+Push con página cerrada se incorpora por petición explícita del usuario el 2026-10-09; ver [PUSH.md](PUSH.md). SMS sigue fuera.
 
 ## Ciclo de cada cambio
 

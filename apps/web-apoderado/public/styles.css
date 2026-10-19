@@ -428,3 +428,45 @@ h1 {
   border: 2px solid var(--accent);
   color: var(--accent);
 }
+
+/* Estados del apoderado: "atendiendo otras paradas" / conectando / finalizado.
+   La eta-card deja de ser el bloque amarillo de ETA y pasa a ser una tarjeta
+   neutra con el mensaje del recorrido. */
+.eta-card.calm {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.eta-headline {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.eta-sub {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.eta-chip {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.eta-pending {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 10px;
+}

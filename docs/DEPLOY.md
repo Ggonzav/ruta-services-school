@@ -85,3 +85,7 @@ Antes de publicar, completar [QA_CHECKLIST.md](QA_CHECKLIST.md) y los controles 
 - Para cambios del backend, aplicar las migraciones nuevas y desplegar las Edge Functions afectadas conforme al README; no asumir que revertir código revierte datos.
 
 El workflow de CI únicamente ejecuta tests y build: no despliega, no conecta con Supabase de producción y no instala builds móviles. El hosting de producción y su configuración efectiva deben verificarse antes de publicar.
+
+## Avisos push
+
+Ver [PUSH.md](PUSH.md) para claves VAPID, migración 0012, función send-push, job de envío y prueba con página cerrada. VAPID_PUBLIC_KEY se incluye al compilar; VAPID_PRIVATE_KEY y PUSH_DISPATCH_SECRET sólo en backend.

@@ -99,6 +99,15 @@ export async function markStop(
   return { event: data.event, direction: data.direction };
 }
 
+/** El conductor declara a quién va ahora (o null para limpiar el destino). */
+export async function setTarget(tripId: string, studentId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('driver_set_target', {
+    p_trip_id: tripId,
+    p_student_id: studentId,
+  });
+  if (error) throw error;
+}
+
 export async function recordStudentEvent(
   tripId: string,
   studentId: string,
@@ -162,4 +171,11 @@ export async function createInviteLink(
   const url = `${webBaseUrl}/i/${data.id}`;
   const shareText = `Hola! Te comparto el link para seguir el recorrido de ${studentFirstName}: ${url}`;
   return { url, shareText };
+}
+
+/** Destino privado, accesible únicamente al conductor dueño del recorrido. */
+export async function getTarget(tripId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('driver_get_target', { p_trip_id: tripId });
+  if (error) throw error;
+  return data?.studentId ?? null;
 }

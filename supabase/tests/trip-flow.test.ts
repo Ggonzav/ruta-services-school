@@ -170,4 +170,62 @@ describe('flujo del conductor: start_trip / record_student_event / finish_trip',
     );
     expect(active.rows).toHaveLength(1);
   });
+
+  it('driver_set_target fija el destino; el apoderado solo sabe de su hijo; se limpia al marcar', async () => {
+    const vehicle = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ id: string }>(
+        `insert into public.vehicles (carrier_id, nickname) values ($1, 'Furgón 0011') returning id`,
+        [s.carrierA.carrierId]
+      )
+    );
+    const route = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ id: string }>(
+        `insert into public.routes (vehicle_id, kind, name, departure_time, school_name, school_lat, school_lng)
+         values ($1, 'AM', 'Ruta 0011', '07:15', 'Colegio Los Aromos', -33.45, -70.66) returning id`,
+        [vehicle.rows[0].id]
+      )
+    );
+    const routeId = route.rows[0].id;
+    for (const [seq, studentId] of [[1, s.martinaId], [2, s.benjaminId]] as const) {
+      await t.as(s.carrierA.userId, (db) =>
+        db.query(
+          `insert into public.route_stops (route_id, student_id, seq, address, lat, lng)
+           values ($1, $2, $3, 'Dirección', -33.44, -70.65)`,
+          [routeId, studentId, seq]
+        )
+      );
+    }
+
+    const trip = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ trip_id: string }>(`select public.driver_start_trip($1, '2026-02-10')->>'tripId' as trip_id`, [routeId])
+    );
+    const tripId = trip.rows[0].trip_id;
+
+    // El conductor elige a Martina como próximo destino.
+    await t.as(s.carrierA.userId, (db) =>
+      db.query(`select public.driver_set_target($1, $2)`, [tripId, s.martinaId])
+    );
+
+    const isNext = async (userId: string, studentId: string) =>
+      (await t.as(userId, (db) =>
+        db.query<{ is_next: boolean }>(`select public.guardian_is_next($1, $2) as is_next`, [tripId, studentId])
+      )).rows[0].is_next;
+
+    // La mamá de Martina ve que su hija es el destino; el papá de Benjamín no.
+    expect(await isNext(s.martinaMom.userId, s.martinaId)).toBe(true);
+    expect(await isNext(s.benjaminDad.userId, s.benjaminId)).toBe(false);
+    // Sin fuga: el papá de Benjamín no puede saber nada de Martina.
+    expect(await isNext(s.benjaminDad.userId, s.martinaId)).toBe(false);
+
+    // Al marcar a Martina, el destino se limpia solo (trigger).
+    await t.as(s.carrierA.userId, (db) =>
+      db.query(`select public.driver_mark_stop($1, $2, 'completed')`, [tripId, s.martinaId])
+    );
+    expect(await isNext(s.martinaMom.userId, s.martinaId)).toBe(false);
+
+    // Otro transportista no puede fijar el destino de este recorrido.
+    await expect(
+      t.as(s.carrierB.userId, (db) => db.query(`select public.driver_set_target($1, $2)`, [tripId, s.martinaId]))
+    ).rejects.toThrow(/not_your_trip/);
+  });
 });

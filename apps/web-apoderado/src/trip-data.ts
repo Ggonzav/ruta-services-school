@@ -12,6 +12,8 @@ export interface TripSnapshot {
   updatedAt: string | null;
   events: TripEventRow[];
   map: TripMapSnapshot | null;
+  /** true solo cuando el furgón va hacia ESTE alumno (es el destino actual). */
+  isNext: boolean;
 }
 
 export interface TripMapSnapshot {
@@ -40,7 +42,7 @@ export async function fetchTripSnapshot(
   client: SupabaseClient, studentId: string, now = new Date(),
 ): Promise<TripSnapshot> {
   const { date, kind: clockKind } = tripClock(now);
-  const empty: TripSnapshot = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null };
+  const empty: TripSnapshot = { tripId: null, direction: directionForKind(clockKind), status: null, etaSeconds: null, updatedAt: null, events: [], map: null, isNext: false };
 
   const { data: stops, error: stopsError } = await client.from('route_stops')
     .select('route_id, lat, lng, address, routes!inner(kind, school_lat, school_lng, school_name)')
@@ -96,8 +98,15 @@ export async function fetchTripSnapshot(
     .maybeSingle();
   if (vehicleError) throw vehicleError;
 
+  const { data: isNextData, error: isNextError } = await client.rpc('guardian_is_next', {
+    p_trip_id: trip.id,
+    p_student_id: studentId,
+  });
+  if (isNextError) throw isNextError;
+
   return {
     ...result,
+    isNext: isNextData === true,
     etaSeconds: eta?.eta_seconds ?? null,
     updatedAt: eta?.updated_at ?? null,
     map: result.map
