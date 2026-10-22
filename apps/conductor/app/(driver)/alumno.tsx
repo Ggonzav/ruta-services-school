@@ -1,20 +1,17 @@
-import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Share, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import type { RouteKind } from '../../../../shared/rutasegura-api';
 import { supabase } from '@/lib/supabase';
 import {
-  assignStudentToRoute,
   createInviteLink,
-  createStudent,
   fetchCarrierRouteIdByKind,
-  removeStudentFromRoute,
-  renameStudent,
+  saveStudentProfile,
 } from '@/lib/tripApi';
 import { colors, radius, typography } from '@/lib/theme';
-import { Button, Card, ErrorText, Eyebrow, Field, Loading, Screen, Segment, Spacer } from '@/components/ui';
+import { Button, Card, ErrorText, Eyebrow, Field, Loading, Screen, Spacer } from '@/components/ui';
 
 interface KindAssignment {
   routeId: string;
@@ -34,7 +31,10 @@ export default function AlumnoScreen() {
   const [loading, setLoading] = useState(isEdit);
   const [originalName, setOriginalName] = useState('');
   const [name, setName] = useState('');
-  const [kind, setKind] = useState<RouteKind>('AM');
+  const [selected, setSelected] = useState({ AM: true, PM: true });
+  const [guardianName, setGuardianName] = useState('');
+  const [guardianPhone, setGuardianPhone] = useState('');
+  const addressVersion = useRef(0);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [byKind, setByKind] = useState<Partial<Record<RouteKind, KindAssignment>>>({});
@@ -42,20 +42,13 @@ export default function AlumnoScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const applyKind = useCallback((k: RouteKind, map: Partial<Record<RouteKind, KindAssignment>>) => {
-    setKind(k);
-    const a = map[k];
-    setAddress(a?.address ?? '');
-    setCoords(a ? { lat: a.lat, lng: a.lng } : null);
-  }, []);
-
   const load = useCallback(async () => {
     if (!studentId) return;
     setLoading(true);
     try {
       const { data } = await supabase
         .from('students')
-        .select('full_name, route_stops(route_id, address, lat, lng, routes(kind))')
+        .select('full_name, student_profiles(*), route_stops(route_id, address, lat, lng, routes(kind))')
         .eq('id', studentId)
         .maybeSingle();
       if (!data) {
@@ -70,21 +63,24 @@ export default function AlumnoScreen() {
         if (k) map[k] = { routeId: rs.route_id, address: rs.address, lat: rs.lat, lng: rs.lng };
       }
       setByKind(map);
-      applyKind(map.AM ? 'AM' : map.PM ? 'PM' : 'AM', map);
+      const raw = (data as any).student_profiles;
+      const profile = Array.isArray(raw) ? raw[0] : raw;
+      const home = profile ?? map.AM ?? map.PM;
+      setAddress(home?.address ?? '');
+      setCoords(home ? { lat: home.lat, lng: home.lng } : null);
+      setGuardianName(profile?.guardian_name ?? '');
+      setGuardianPhone(profile?.guardian_phone ?? '');
+      setSelected({ AM: !!map.AM, PM: !!map.PM });
     } finally {
       setLoading(false);
     }
-  }, [studentId, applyKind]);
+  }, [studentId]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
-
-  function onKindChange(k: RouteKind) {
-    applyKind(k, byKind);
-  }
 
   async function geocodeFromAddress() {
     if (!address.trim()) {
@@ -93,12 +89,14 @@ export default function AlumnoScreen() {
     }
     setError(null);
     setResolving(true);
+    const version = addressVersion.current;
     try {
       const results = await Location.geocodeAsync(address.trim());
       if (results.length === 0) {
         setError('No encontramos esa dirección. Ajusta el texto o usa tu ubicación actual.');
         return;
       }
+      if (version !== addressVersion.current) return;
       setCoords({ lat: results[0].latitude, lng: results[0].longitude });
     } catch {
       setError('No pudimos buscar la dirección. Intenta con tu ubicación actual.');
@@ -110,6 +108,7 @@ export default function AlumnoScreen() {
   async function useCurrentLocation() {
     setError(null);
     setResolving(true);
+    const version = addressVersion.current;
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -117,6 +116,7 @@ export default function AlumnoScreen() {
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (version !== addressVersion.current) return;
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     } catch {
       setError('No pudimos obtener tu ubicación. Intenta geocodificar la dirección.');
@@ -129,45 +129,27 @@ export default function AlumnoScreen() {
     if (message.includes('route_has_active_trip') || message.includes('student_has_active_trip')) {
       return 'Hay un recorrido en curso: no puedes cambiar alumnos ni paradas hasta finalizarlo.';
     }
+    if (message.includes('profile_fields_required')) return 'Completa el nombre, dirección y datos del apoderado.';
     if (message.includes('full_name_required')) return 'El nombre no puede quedar vacío.';
     if (message.includes('invalid_coordinates')) return 'La coordenada no es válida. Vuelve a fijar el punto.';
     return message;
   }
 
   async function handleSave() {
+    if (!guardianName.trim() || !guardianPhone.trim()) return setError('Ingresa nombre y teléfono del apoderado.');
     if (!name.trim()) return setError('El nombre es obligatorio.');
     if (!address.trim()) return setError('La dirección es obligatoria.');
     if (!coords) return setError('Fija el punto: busca por dirección o usa tu ubicación actual.');
     setError(null);
     setSaving(true);
     try {
-      const routeId = await fetchCarrierRouteIdByKind(kind);
-      if (!routeId) {
-        setError(`No tienes una ruta ${kind} configurada. Pide al equipo que la cree.`);
+      const amRoute = selected.AM ? byKind.AM?.routeId ?? await fetchCarrierRouteIdByKind('AM') : null;
+      const pmRoute = selected.PM ? byKind.PM?.routeId ?? await fetchCarrierRouteIdByKind('PM') : null;
+      if ((selected.AM && !amRoute) || (selected.PM && !pmRoute)) {
+        setError('No hay una ruta única configurada para el trayecto seleccionado.');
         return;
       }
-      let id = studentId;
-      if (!id) {
-        id = await createStudent(name.trim());
-      } else if (name.trim() !== originalName) {
-        await renameStudent(id, name.trim());
-      }
-      await assignStudentToRoute({ studentId: id, routeId, address: address.trim(), lat: coords.lat, lng: coords.lng });
-      router.replace('/(driver)/alumnos');
-    } catch (e) {
-      setError(friendlyError(e instanceof Error ? e.message : String(e)));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleRemoveFromRoute() {
-    const a = byKind[kind];
-    if (!studentId || !a) return;
-    setError(null);
-    setSaving(true);
-    try {
-      await removeStudentFromRoute(studentId, a.routeId);
+      await saveStudentProfile({ studentId, name, address, ...coords, guardianName, guardianPhone, amRoute, pmRoute });
       router.replace('/(driver)/alumnos');
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
@@ -208,19 +190,21 @@ export default function AlumnoScreen() {
       <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
         <Field label="Nombre completo" placeholder="Nombre y apellido" value={name} onChangeText={setName} />
 
-        <View style={{ gap: 6 }}>
-          <Text style={typography.label}>TURNO</Text>
-          <Segment
-            value={kind}
-            onChange={onKindChange}
-            options={[
-              { value: 'AM', label: 'AM · Ida' },
-              { value: 'PM', label: 'PM · Vuelta' },
-            ]}
-          />
+        <Field label="Dirección de la casa" placeholder="Calle, número y comuna" value={address}
+          onChangeText={(value) => { addressVersion.current++; setAddress(value); setCoords(null); }} />
+        <Text style={typography.small}>La misma dirección se utiliza para la ida y el regreso.</Text>
+        <View style={{ gap: 12 }}>
+          {(['AM', 'PM'] as const).map(k => (
+            <Pressable key={k} accessibilityRole="checkbox" accessibilityState={{ checked: selected[k] }}
+              onPress={() => setSelected(prev => ({ ...prev, [k]: !prev[k] }))}>
+              <Text style={typography.label}>{selected[k] ? '☑' : '☐'} {k === 'AM' ? 'Ida al colegio' : 'Regreso a casa'}</Text>
+            </Pressable>
+          ))}
+          <Text style={typography.small}>Desmarca un trayecto para retirar al alumno de esa ruta.</Text>
         </View>
-
-        <Field label="Dirección" placeholder="Calle y número" value={address} onChangeText={setAddress} />
+        <Field label="Nombre del apoderado" value={guardianName} onChangeText={setGuardianName} />
+        <Field label="Teléfono del apoderado" placeholder="+56 9 …" keyboardType="phone-pad" value={guardianPhone} onChangeText={setGuardianPhone} />
+        <Text style={typography.small}>Guarda sus datos de contacto y luego comparte la invitación para activar su acceso.</Text>
 
         <Card style={{ gap: 12 }}>
           <Text style={typography.label}>PUNTO DE LA PARADA</Text>
@@ -251,20 +235,12 @@ export default function AlumnoScreen() {
 
         {error && <ErrorText>{error}</ErrorText>}
 
-        <Button title={isEdit ? 'Guardar cambios' : 'Guardar alumno'} onPress={handleSave} loading={saving} />
+        <Button title={isEdit ? 'Guardar cambios' : 'Guardar alumno'} onPress={handleSave} loading={saving} disabled={resolving} />
 
         {isEdit && (
           <>
             <Button title="Invitar apoderado" variant="ghost" size="md" onPress={handleInvite} />
-            {byKind[kind] && (
-              <Button
-                title={`Quitar de la ruta ${kind}`}
-                variant="danger"
-                size="md"
-                onPress={handleRemoveFromRoute}
-                loading={saving}
-              />
-            )}
+
           </>
         )}
       </ScrollView>

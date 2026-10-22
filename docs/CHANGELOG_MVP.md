@@ -84,3 +84,20 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - QA del autor: 137/137 tests; build web, TypeScript web/conductor y diff-check aprobados. Configuración local conservada y excluida del commit; .env y secretos ignorados.
 - Entrega en borrador: pendiente recepción push real, GPS sostenido con pantalla bloqueada y humo del entorno público. No se ejecutaron despliegues ni cambios remotos de configuración/datos.
 - Siguiente alcance autorizado: pantalla Mis alumnos (agregar, editar y asignar rutas), aún sin implementar en este respaldo.
+
+## 2026-10-19 — Migraciones para prueba de Mis alumnos
+
+- Con autorización explícita del usuario, aplicadas `0012_web_push.sql` y `0013_student_admin.sql` al proyecto `jfjysvvrpjemcdkqutmw` desde `feature/mis-alumnos`.
+- Dry-run confirmó exclusivamente ambas migraciones; `supabase db push --yes` terminó correctamente y reportó aplicación de las dos. No se ejecutaron seeds ni resets.
+- No se desplegó send-push, no se configuraron cron/VAPID y no se publicó la web. Aplicar 0012 no certifica envío de notificaciones.
+- Prueba funcional de Mis alumnos en iPhone pendiente. Servidor de desarrollo preparado en puerto 8082.
+
+## 2026-10-19 — Dirección común y contacto del apoderado
+
+- Formulario de alumno con una dirección y casillas independientes Ida/Regreso; editar dirección invalida coordenadas anteriores. Guardado transaccional de alumno, contacto y asignaciones mediante nueva 0014 (0013 aplicada intacta). Desmarcar ambos conserva ficha/dirección sin rutas.
+- Nombre y teléfono de contacto obligatorios. Tabla privada student_profiles con RLS para transportista dueño; no crea sesión/cuenta ni otorga acceso al apoderado. Invitación sigue separada. Lista distingue contacto pendiente y acceso activado.
+- QA autor: 153/153 tests, incluyendo aislamiento y rollback al fallar segundo trayecto; TypeScript conductor aprobado antes del ajuste final de protección de geocodificación. Migración 0014 aún no aplicada; validación de interfaz en teléfono pendiente.
+
+- Revisión independiente `/root/push_target_integration_review`: 3/3 tests perfil aprobados, sin bloqueantes; resultado tardío de geocodificación corregido con versión de dirección (verificado por inspección, no test UI). TypeScript final y build web aprobados. Pendiente prueba iPhone y aplicación autorizada de0014.
+
+- Operación autorizada: aplicada `0014_student_profile.sql` a `jfjysvvrpjemcdkqutmw`. Dry-run incluyó únicamente 0014; db push completó correctamente. Sin seeds, reset, merge ni publicación web. Prueba del formulario en iPhone pendiente.

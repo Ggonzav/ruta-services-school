@@ -104,12 +104,12 @@ export default function AlumnosScreen() {
                         key={a.routeId}
                         style={{ backgroundColor: colors.chipBg, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 }}
                       >
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: colors.accent }}>{a.kind}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: colors.accent }}>{a.kind === 'AM' ? 'Ida' : 'Regreso'}</Text>
                       </View>
                     ))
                   )}
                   <Text style={{ fontSize: 11, fontWeight: '800', color: item.hasGuardian ? colors.success : colors.textMuted }}>
-                    {item.hasGuardian ? '· Apoderado OK' : '· Sin apoderado'}
+                    {item.hasGuardian ? '· Acceso activado' : item.hasContact ? '· Contacto guardado · Invitar apoderado' : '· Completar datos del apoderado'}
                   </Text>
                 </View>
               </View>

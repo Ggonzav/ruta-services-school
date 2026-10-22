@@ -198,13 +198,14 @@ export interface StudentAdmin {
   fullName: string;
   assignments: StudentAssignment[];
   hasGuardian: boolean;
+  hasContact: boolean;
 }
 
 /** Todos los alumnos del transportista, con su asignación a rutas e info de apoderado. */
 export async function listStudents(): Promise<StudentAdmin[]> {
   const { data, error } = await supabase
     .from('students')
-    .select('id, full_name, route_stops(route_id, address, routes(kind)), student_guardians(guardian_id)')
+    .select('id, full_name, route_stops(route_id, address, routes(kind)), student_guardians(guardian_id), student_profiles(guardian_name)')
     .order('full_name', { ascending: true });
   if (error) throw error;
 
@@ -217,6 +218,7 @@ export async function listStudents(): Promise<StudentAdmin[]> {
       kind: (Array.isArray(rs.routes) ? rs.routes[0]?.kind : rs.routes?.kind) as RouteKind,
       address: rs.address,
     })),
+    hasContact: Array.isArray(s.student_profiles) ? s.student_profiles.length > 0 : !!s.student_profiles,
     hasGuardian: (s.student_guardians ?? []).length > 0,
   }));
 }
@@ -277,4 +279,17 @@ export async function removeStudentFromRoute(studentId: string, routeId: string)
     p_route_id: routeId,
   });
   if (error) throw error;
+}
+
+export async function saveStudentProfile(input: {
+ studentId: string | null; name: string; address: string; lat: number; lng: number;
+ guardianName: string; guardianPhone: string; amRoute: string | null; pmRoute: string | null;
+}): Promise<string> {
+ const { data, error } = await supabase.rpc('carrier_save_student_profile', {
+ p_student_id: input.studentId, p_full_name: input.name.trim(), p_address: input.address.trim(),
+ p_lat: input.lat, p_lng: input.lng, p_guardian_name: input.guardianName.trim(),
+ p_guardian_phone: input.guardianPhone.trim(), p_am_route: input.amRoute, p_pm_route: input.pmRoute,
+ });
+ if (error) throw new Error(error.message);
+ return data as string;
 }
