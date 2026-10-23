@@ -143,4 +143,28 @@ export function connectionState(params: {
   const age = nowMs - new Date(lastEtaUpdatedAt).getTime();
   return age > staleAfterMs ? 'stale' : 'live';
 }
+
+/**
+ * ¿El seguimiento está "sin señal"? Es decir: el furgón va hacia este alumno,
+ * pero ni el ETA ni la ubicación del furgón se actualizaron hace poco. Sirve
+ * para mostrar un estado honesto ("sin señal") en vez de un ETA viejo o un
+ * furgón inmóvil. Nota de privacidad: la RLS oculta la ubicación del furgón
+ * cuando no es fresca, así que aquí basta con que ninguno de los dos timestamps
+ * sea reciente. Devuelve true también cuando todavía no llegó ningún dato.
+ */
+export function isTrackingStale(params: {
+  etaUpdatedAt: string | null;
+  vehicleUpdatedAt: string | null;
+  nowMs: number;
+  staleAfterMs?: number;
+}): boolean {
+  const { etaUpdatedAt, vehicleUpdatedAt, nowMs, staleAfterMs = 120_000 } = params;
+  const isFresh = (iso: string | null): boolean => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return Number.isFinite(t) && nowMs - t <= staleAfterMs;
+  };
+  return !(isFresh(etaUpdatedAt) || isFresh(vehicleUpdatedAt));
+}
+
 import type { RouteDirection } from '../../../shared/rutasegura-api';

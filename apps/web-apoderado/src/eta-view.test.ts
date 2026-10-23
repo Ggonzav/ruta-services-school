@@ -4,8 +4,35 @@ import {
   connectionState,
   etaProgressRatio,
   formatEtaMinutes,
+  isTrackingStale,
   type TripEventRow,
 } from './eta-view.js';
+
+describe('isTrackingStale', () => {
+  const now = Date.parse('2026-10-23T12:00:00Z');
+  const ago = (sec: number) => new Date(now - sec * 1000).toISOString();
+
+  it('fresco cuando el ETA se actualizó hace poco', () => {
+    expect(isTrackingStale({ etaUpdatedAt: ago(30), vehicleUpdatedAt: null, nowMs: now })).toBe(false);
+  });
+
+  it('fresco cuando la ubicación del furgón es reciente aunque el ETA no exista', () => {
+    expect(isTrackingStale({ etaUpdatedAt: null, vehicleUpdatedAt: ago(45), nowMs: now })).toBe(false);
+  });
+
+  it('sin señal cuando ambos timestamps son viejos', () => {
+    expect(isTrackingStale({ etaUpdatedAt: ago(300), vehicleUpdatedAt: ago(300), nowMs: now })).toBe(true);
+  });
+
+  it('sin señal cuando no llegó ningún dato todavía', () => {
+    expect(isTrackingStale({ etaUpdatedAt: null, vehicleUpdatedAt: null, nowMs: now })).toBe(true);
+  });
+
+  it('respeta un umbral personalizado', () => {
+    expect(isTrackingStale({ etaUpdatedAt: ago(100), vehicleUpdatedAt: null, nowMs: now, staleAfterMs: 60_000 })).toBe(true);
+    expect(isTrackingStale({ etaUpdatedAt: ago(100), vehicleUpdatedAt: null, nowMs: now, staleAfterMs: 180_000 })).toBe(false);
+  });
+});
 
 describe('buildTimeline', () => {
   it('sin ningún evento, las 4 etapas están pendientes', () => {

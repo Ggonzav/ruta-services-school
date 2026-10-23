@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
-import { buildTimeline, boardingStatus, boardingStatusLabel, formatEtaMinutes, type TripEventRow } from './eta-view';
+import { buildTimeline, boardingStatus, boardingStatusLabel, formatEtaMinutes, isTrackingStale, type TripEventRow } from './eta-view';
 import { loadRedeemedStudents, saveRedeemedStudent, type RedeemedStudent } from './local-students';
 import { enablePush, disablePush } from './push';
 import { parseInviteToken } from './router';
@@ -237,12 +237,21 @@ async function refreshOnce(student: RedeemedStudent) {
   }
 }
 
-type ViewMode = 'connecting' | 'finished' | 'next' | 'waiting';
+type ViewMode = 'connecting' | 'finished' | 'next' | 'waiting' | 'stale';
 function viewMode(snapshot: TripSnapshot, studentId: string): ViewMode {
   if (!snapshot.status || snapshot.status === 'scheduled') return 'connecting';
   if (snapshot.status === 'finished' || snapshot.status === 'canceled') return 'finished';
   if (snapshot.events.some(e => e.student_id === studentId && (e.kind === 'skipped' || e.kind === 'dropped_off'))) return 'finished';
-  return snapshot.isNext ? 'next' : 'waiting';
+  if (!snapshot.isNext) return 'waiting';
+  // Es nuestra parada, pero si no hay dato reciente (ETA ni ubicación)
+  // mostramos "sin señal" en vez de un ETA viejo o un furgón inmóvil.
+  return isTrackingStale({
+    etaUpdatedAt: snapshot.updatedAt,
+    vehicleUpdatedAt: snapshot.map?.vehicle?.updatedAt ?? null,
+    nowMs: Date.now(),
+  })
+    ? 'stale'
+    : 'next';
 }
 async function paintMap(map: TripMapSnapshot | null, mode: ViewMode) {
   const version = ++mapVersion;
@@ -412,6 +421,16 @@ function paintEtaCard(snapshot: TripSnapshot, studentId: string, mode: ViewMode)
       <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
     return;
   }
+  if (mode === "stale") {
+    const last = snapshot.updatedAt
+      ? `\xDAltima actualizaci\xF3n ${relativeTime(snapshot.updatedAt)}.`
+      : "A\xFAn no llega la primera ubicaci\xF3n del furg\xF3n.";
+    card.innerHTML = `
+      <div class="eta-headline">\u{1F4E1} Sin se\xF1al del furg\xF3n ahora mismo</div>
+      <div class="eta-sub">${escapeHtml(last)} Puede ser mala cobertura. No movemos el furg\xF3n en el mapa si no hay datos nuevos, y por tu privacidad no mostramos una posici\xF3n antigua. Reintentamos solos.</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
+  }
   if (mode === "waiting") {
     const status = boardingStatusLabel(
       boardingStatus(snapshot.events, studentId, snapshot.direction),
@@ -449,7 +468,7 @@ function paintTimeline(events: TripEventRow[], student: RedeemedStudent, directi
         <div class="step ${s.done ? 'done' : ''}">
           <div class="dot"></div>
           <div class="step-label">${escapeHtml(s.label)}</div>
-          <div class="step-time">${s.time ?? ''}</div>
+          <div class="step-time">${s.done && s.time ? '✓ ' + s.time : (s.time ?? '')}</div>
         </div>`
     )
     .join('');
