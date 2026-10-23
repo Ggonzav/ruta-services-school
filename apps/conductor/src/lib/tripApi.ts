@@ -179,3 +179,117 @@ export async function getTarget(tripId: string): Promise<string | null> {
   if (error) throw error;
   return data?.studentId ?? null;
 }
+
+// ============================================================================
+// "Mis alumnos": administración de alumnos y de sus paradas por el
+// transportista. Las mutaciones pasan por los RPC de 0013_student_admin.sql,
+// que validan pertenencia y bloquean cambios mientras hay un recorrido en
+// curso (lanzan route_has_active_trip / student_has_active_trip).
+// ============================================================================
+
+export interface StudentAssignment {
+  routeId: string;
+  kind: RouteKind;
+  address: string;
+}
+
+export interface StudentAdmin {
+  id: string;
+  fullName: string;
+  assignments: StudentAssignment[];
+  hasGuardian: boolean;
+  hasContact: boolean;
+}
+
+/** Todos los alumnos del transportista, con su asignación a rutas e info de apoderado. */
+export async function listStudents(): Promise<StudentAdmin[]> {
+  const { data, error } = await supabase
+    .from('students')
+    .select('id, full_name, route_stops(route_id, address, routes(kind)), student_guardians(guardian_id), student_profiles(guardian_name)')
+    .order('full_name', { ascending: true });
+  if (error) throw error;
+
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    fullName: s.full_name,
+    assignments: (s.route_stops ?? []).map((rs: any) => ({
+      routeId: rs.route_id,
+      // routes puede venir como objeto (to-one) o, defensivamente, como arreglo.
+      kind: (Array.isArray(rs.routes) ? rs.routes[0]?.kind : rs.routes?.kind) as RouteKind,
+      address: rs.address,
+    })),
+    hasContact: Array.isArray(s.student_profiles) ? s.student_profiles.length > 0 : !!s.student_profiles,
+    hasGuardian: (s.student_guardians ?? []).length > 0,
+  }));
+}
+
+/** La ruta del transportista para ese turno (AM/PM), o null si no la tiene. */
+export async function fetchCarrierRouteIdByKind(kind: RouteKind): Promise<string | null> {
+  const { data: carrier } = await supabase.from('carriers').select('id').single();
+  if (!carrier) return null;
+  const { data: route } = await supabase
+    .from('routes')
+    .select('id, vehicles!inner(carrier_id)')
+    .eq('kind', kind)
+    .eq('vehicles.carrier_id', carrier.id)
+    .maybeSingle();
+  return route?.id ?? null;
+}
+
+/** ¿Hay algún recorrido en curso del transportista? (para bloquear edición). */
+export async function hasActiveTrip(): Promise<boolean> {
+  const { data } = await supabase.from('trips').select('id').eq('status', 'in_progress').limit(1);
+  return (data ?? []).length > 0;
+}
+
+export async function createStudent(fullName: string): Promise<string> {
+  const { data, error } = await supabase.rpc('carrier_create_student', { p_full_name: fullName });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function renameStudent(studentId: string, fullName: string): Promise<void> {
+  const { error } = await supabase.rpc('carrier_rename_student', {
+    p_student_id: studentId,
+    p_full_name: fullName,
+  });
+  if (error) throw error;
+}
+
+export async function assignStudentToRoute(input: {
+  studentId: string;
+  routeId: string;
+  address: string;
+  lat: number;
+  lng: number;
+}): Promise<void> {
+  const { error } = await supabase.rpc('carrier_assign_student_to_route', {
+    p_student_id: input.studentId,
+    p_route_id: input.routeId,
+    p_address: input.address,
+    p_lat: input.lat,
+    p_lng: input.lng,
+  });
+  if (error) throw error;
+}
+
+export async function removeStudentFromRoute(studentId: string, routeId: string): Promise<void> {
+  const { error } = await supabase.rpc('carrier_remove_student_from_route', {
+    p_student_id: studentId,
+    p_route_id: routeId,
+  });
+  if (error) throw error;
+}
+
+export async function saveStudentProfile(input: {
+ studentId: string | null; name: string; address: string; lat: number; lng: number;
+ guardianName: string; guardianPhone: string; amRoute: string | null; pmRoute: string | null;
+}): Promise<string> {
+ const { data, error } = await supabase.rpc('carrier_save_student_profile', {
+ p_student_id: input.studentId, p_full_name: input.name.trim(), p_address: input.address.trim(),
+ p_lat: input.lat, p_lng: input.lng, p_guardian_name: input.guardianName.trim(),
+ p_guardian_phone: input.guardianPhone.trim(), p_am_route: input.amRoute, p_pm_route: input.pmRoute,
+ });
+ if (error) throw new Error(error.message);
+ return data as string;
+}

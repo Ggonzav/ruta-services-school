@@ -187,6 +187,12 @@ export default function HomeScreen() {
         disabled={route.stops.length === 0}
       />
       <Button
+        title="Mis alumnos"
+        variant="ghost"
+        size="md"
+        onPress={() => router.push('/(driver)/alumnos')}
+      />
+      <Button
         title="Invitar apoderados"
         variant="ghost"
         size="md"

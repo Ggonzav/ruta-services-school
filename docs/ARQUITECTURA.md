@@ -209,3 +209,7 @@ segundos. En segundo plano el siguiente intento depende de eventos nativos.
 La confirmación vence a los 120 segundos de la captura; no prueba entrega a
 los apoderados. Ver [QA_GPS_WEB_LOCAL.md](QA_GPS_WEB_LOCAL.md) para evidencia y
 validación física pendiente. No se conserva historial de coordenadas en el cliente.
+
+## Perfil administrativo del alumno (0014, pendiente de aplicar)
+
+`student_profiles` conserva dirección común y contacto (nombre/teléfono) incluso sin rutas. Sólo el transportista dueño puede leer o escribir bajo RLS; no se expone al apoderado ni crea enlaces `student_guardians`. La invitación continúa siendo el mecanismo de acceso. `carrier_save_student_profile` usa SECURITY INVOKER y una única transacción para nombre, contacto y asignaciones Ida/Regreso; si una parada está bloqueada, revierte el conjunto. Las coordenadas comunes se copian a ambas paradas seleccionadas.
