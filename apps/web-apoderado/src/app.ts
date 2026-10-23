@@ -184,6 +184,7 @@ function renderEtaView(student: RedeemedStudent) {
           <div class="map-empty">Esperando ubicación del furgón…</div>
         </div>
       </div>
+      <div class="driver-card" id="driver-card" hidden></div>
       <div class="timeline" id="timeline"></div>
       <div class="push-card">
         <div class="push-title">Recibe avisos aunque cierres esta página</div>
@@ -226,6 +227,7 @@ async function refreshOnce(student: RedeemedStudent) {
     paintEtaCard(snapshot, student.studentId, mode);
     void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
+    void refreshDriverCard(snapshot, version);
   } catch (err) {
     if (version !== refreshVersion) return;
     console.error(err);
@@ -472,6 +474,54 @@ function paintTimeline(events: TripEventRow[], student: RedeemedStudent, directi
         </div>`
     )
     .join('');
+}
+
+// ---------------------------------------------------------------------------
+// Tarjeta del conductor: quién maneja el furgón hoy, con botón para llamar.
+// Los datos llegan por guardian_trip_driver, autorizada por el recorrido; solo
+// se muestra con un recorrido en curso.
+interface TripDriver { name: string; phone: string | null; photoUrl: string | null }
+async function refreshDriverCard(snapshot: TripSnapshot, version: number) {
+  const el = document.getElementById('driver-card');
+  if (!el) return;
+  if (!snapshot.tripId || snapshot.status !== 'in_progress') {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  try {
+    const { data, error } = await supabase.rpc('guardian_trip_driver', { p_trip_id: snapshot.tripId });
+    if (version !== refreshVersion) return;
+    paintDriverCard(el, error ? null : (data as TripDriver | null));
+  } catch {
+    // Un fallo al leer el conductor nunca debe romper el refresco del ETA.
+    if (version === refreshVersion) paintDriverCard(el, null);
+  }
+}
+
+function paintDriverCard(el: HTMLElement, driver: TripDriver | null) {
+  if (!driver || !driver.name) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  const initial = driver.name.trim()[0]?.toUpperCase() ?? '?';
+  const photo = typeof driver.photoUrl === 'string' && /^https:\/\//.test(driver.photoUrl) ? driver.photoUrl : null;
+  const avatar = photo
+    ? `<img class="driver-photo" src="${escapeHtml(photo)}" alt="" />`
+    : `<div class="driver-initial">${escapeHtml(initial)}</div>`;
+  const phone = typeof driver.phone === 'string' ? driver.phone.trim() : '';
+  const call = phone
+    ? `<a class="driver-call" href="tel:${escapeHtml(phone)}" aria-label="Llamar al conductor">Llamar</a>`
+    : '';
+  el.innerHTML = `
+    ${avatar}
+    <div class="driver-info">
+      <div class="driver-kicker">Tu conductor</div>
+      <div class="driver-name">${escapeHtml(driver.name)}</div>
+    </div>
+    ${call}`;
+  el.hidden = false;
 }
 
 // ---------------------------------------------------------------------------

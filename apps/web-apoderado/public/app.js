@@ -21119,6 +21119,7 @@ function renderEtaView(student) {
           <div class="map-empty">Esperando ubicaci\xF3n del furg\xF3n\u2026</div>
         </div>
       </div>
+      <div class="driver-card" id="driver-card" hidden></div>
       <div class="timeline" id="timeline"></div>
       <div class="push-card">
         <div class="push-title">Recibe avisos aunque cierres esta p\xE1gina</div>
@@ -21157,6 +21158,7 @@ async function refreshOnce(student) {
     paintEtaCard(snapshot, student.studentId, mode);
     void paintMap(snapshot.map, mode);
     paintTimeline(snapshot.events, student, snapshot.direction);
+    void refreshDriverCard(snapshot, version5);
   } catch (err) {
     if (version5 !== refreshVersion) return;
     console.error(err);
@@ -21374,6 +21376,42 @@ function paintTimeline(events, student, direction) {
           <div class="step-time">${s.done && s.time ? "\u2713 " + s.time : s.time ?? ""}</div>
         </div>`
   ).join("");
+}
+async function refreshDriverCard(snapshot, version5) {
+  const el = document.getElementById("driver-card");
+  if (!el) return;
+  if (!snapshot.tripId || snapshot.status !== "in_progress") {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  try {
+    const { data, error } = await supabase.rpc("guardian_trip_driver", { p_trip_id: snapshot.tripId });
+    if (version5 !== refreshVersion) return;
+    paintDriverCard(el, error ? null : data);
+  } catch {
+    if (version5 === refreshVersion) paintDriverCard(el, null);
+  }
+}
+function paintDriverCard(el, driver) {
+  if (!driver || !driver.name) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  const initial = driver.name.trim()[0]?.toUpperCase() ?? "?";
+  const photo = typeof driver.photoUrl === "string" && /^https:\/\//.test(driver.photoUrl) ? driver.photoUrl : null;
+  const avatar = photo ? `<img class="driver-photo" src="${escapeHtml(photo)}" alt="" />` : `<div class="driver-initial">${escapeHtml(initial)}</div>`;
+  const phone = typeof driver.phone === "string" ? driver.phone.trim() : "";
+  const call = phone ? `<a class="driver-call" href="tel:${escapeHtml(phone)}" aria-label="Llamar al conductor">Llamar</a>` : "";
+  el.innerHTML = `
+    ${avatar}
+    <div class="driver-info">
+      <div class="driver-kicker">Tu conductor</div>
+      <div class="driver-name">${escapeHtml(driver.name)}</div>
+    </div>
+    ${call}`;
+  el.hidden = false;
 }
 async function changePush(studentId, enabled) {
   const status = document.getElementById("push-status");

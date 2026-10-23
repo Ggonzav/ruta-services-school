@@ -293,3 +293,40 @@ export async function saveStudentProfile(input: {
  if (error) throw new Error(error.message);
  return data as string;
 }
+
+// ============================================================================
+// Perfil del transportista (lo que el apoderado ve como "tarjeta del conductor")
+// y cierre de sesión. Reutiliza carriers.full_name/phone; photo_url es 0015.
+// ============================================================================
+
+export interface CarrierProfile {
+  fullName: string;
+  phone: string;
+  photoUrl: string | null;
+}
+
+export async function fetchCarrierProfile(): Promise<CarrierProfile | null> {
+  const { data, error } = await supabase.from('carriers').select('full_name, phone, photo_url').single();
+  if (error || !data) return null;
+  return { fullName: data.full_name, phone: data.phone ?? '', photoUrl: data.photo_url ?? null };
+}
+
+export async function saveCarrierProfile(input: CarrierProfile): Promise<void> {
+  const { data: carrier, error: readError } = await supabase.from('carriers').select('id').single();
+  if (readError || !carrier) throw readError ?? new Error('no_carrier');
+  const { error } = await supabase
+    .from('carriers')
+    .update({
+      full_name: input.fullName.trim(),
+      phone: input.phone.trim() || null,
+      photo_url: input.photoUrl?.trim() || null,
+    })
+    .eq('id', carrier.id);
+  if (error) throw error;
+}
+
+/** Cierra la sesión del conductor; el guard de (driver)/_layout redirige a /login. */
+export async function signOut(): Promise<void> {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}

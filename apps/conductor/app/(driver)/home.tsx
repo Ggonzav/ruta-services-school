@@ -197,6 +197,12 @@ export default function HomeScreen() {
         variant="ghost"
         size="md"
         onPress={() => router.push('/(driver)/compartir')}
+      />
+      <Button
+        title="Mi perfil"
+        variant="neutralGhost"
+        size="md"
+        onPress={() => router.push('/(driver)/perfil')}
         style={{ marginBottom: 12 }}
       />
     </Screen>
