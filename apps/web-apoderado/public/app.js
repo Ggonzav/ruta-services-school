@@ -20815,6 +20815,15 @@ function formatEtaMinutes(etaSeconds) {
   if (minutes <= 0) return "menos de 1 min";
   return `${minutes} min`;
 }
+function isTrackingStale(params) {
+  const { etaUpdatedAt, vehicleUpdatedAt, nowMs, staleAfterMs = 12e4 } = params;
+  const isFresh = (iso) => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return Number.isFinite(t) && nowMs - t <= staleAfterMs;
+  };
+  return !(isFresh(etaUpdatedAt) || isFresh(vehicleUpdatedAt));
+}
 
 // src/local-students.ts
 var STORAGE_KEY2 = "furgon.apoderado.alumnos";
@@ -21162,7 +21171,12 @@ function viewMode(snapshot, studentId) {
   if (!snapshot.status || snapshot.status === "scheduled") return "connecting";
   if (snapshot.status === "finished" || snapshot.status === "canceled") return "finished";
   if (snapshot.events.some((e) => e.student_id === studentId && (e.kind === "skipped" || e.kind === "dropped_off"))) return "finished";
-  return snapshot.isNext ? "next" : "waiting";
+  if (!snapshot.isNext) return "waiting";
+  return isTrackingStale({
+    etaUpdatedAt: snapshot.updatedAt,
+    vehicleUpdatedAt: snapshot.map?.vehicle?.updatedAt ?? null,
+    nowMs: Date.now()
+  }) ? "stale" : "next";
 }
 async function paintMap(map, mode) {
   const version5 = ++mapVersion;
@@ -21313,6 +21327,14 @@ function paintEtaCard(snapshot, studentId, mode) {
       <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
     return;
   }
+  if (mode === "stale") {
+    const last = snapshot.updatedAt ? `\xDAltima actualizaci\xF3n ${relativeTime(snapshot.updatedAt)}.` : "A\xFAn no llega la primera ubicaci\xF3n del furg\xF3n.";
+    card.innerHTML = `
+      <div class="eta-headline">\u{1F4E1} Sin se\xF1al del furg\xF3n ahora mismo</div>
+      <div class="eta-sub">${escapeHtml(last)} Puede ser mala cobertura. No movemos el furg\xF3n en el mapa si no hay datos nuevos, y por tu privacidad no mostramos una posici\xF3n antigua. Reintentamos solos.</div>
+      <div class="eta-freshness">${escapeHtml(fresh)}</div>`;
+    return;
+  }
   if (mode === "waiting") {
     const status = boardingStatusLabel(
       boardingStatus(snapshot.events, studentId, snapshot.direction),
@@ -21349,7 +21371,7 @@ function paintTimeline(events, student, direction) {
         <div class="step ${s.done ? "done" : ""}">
           <div class="dot"></div>
           <div class="step-label">${escapeHtml(s.label)}</div>
-          <div class="step-time">${s.time ?? ""}</div>
+          <div class="step-time">${s.done && s.time ? "\u2713 " + s.time : s.time ?? ""}</div>
         </div>`
   ).join("");
 }
