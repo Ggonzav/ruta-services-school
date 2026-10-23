@@ -31,6 +31,12 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Migraciones/configuración afectadas:
 - Reversión: pasos concretos; no asumir que revertir código revierte datos.
 
+## 2026-10-22 — Cierre de sesión del conductor
+
+- La pantalla Mis rutas incorpora **Cerrar sesión**, con confirmación para evitar una salida accidental.
+- El cierre afecta sólo la sesión guardada en ese dispositivo y vuelve a la pantalla de acceso. Si falla, conserva la sesión y muestra un mensaje para reintentar.
+- Sin cambios de base de datos, RLS, RPC, configuración ni recorrido activo.
+
 ## 2026-10-08 — Controles activados en GitHub
 
 - Protecciones activadas en main y develop: PR, una aprobación independiente, invalidación de aprobaciones al añadir cambios, conversaciones resueltas, rama actualizada y checks Tests/Web build de GitHub Actions. Incluye administradores; force push y borrado deshabilitados.

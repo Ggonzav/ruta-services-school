@@ -4,6 +4,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchTodayRoute, startTrip, type TodayRoute } from '@/lib/tripApi';
 import { startSharingLocation } from '@/lib/backgroundLocation';
+import { supabase } from '@/lib/supabase';
 import { colors, typography } from '@/lib/theme';
 import { Badge, Button, Card, ErrorText, Eyebrow, Loading, Screen, Segment, Spacer } from '@/components/ui';
 
@@ -15,6 +16,7 @@ export default function HomeScreen() {
   const [route, setRoute] = useState<TodayRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -91,6 +93,29 @@ export default function HomeScreen() {
     }
   }
 
+  function confirmSignOut() {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Quieres salir de tu cuenta de conductor?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: handleSignOut },
+      ]
+    );
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    setPermissionError(null);
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) {
+      setPermissionError('No pudimos cerrar la sesión. Revisa tu conexión e inténtalo nuevamente.');
+      setSigningOut(false);
+      return;
+    }
+    router.replace('/login');
+  }
+
   if (loading) return <Loading />;
 
   if (loadError) {
@@ -118,10 +143,20 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <View>
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
-        <Text style={typography.display}>Mis rutas</Text>
-        <Text style={typography.small}>{route.vehicleNickname}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ flexShrink: 1 }}>
+          <Eyebrow>🚌 RUTASEGURA</Eyebrow>
+          <Text style={typography.display}>Mis rutas</Text>
+          <Text style={typography.small}>{route.vehicleNickname}</Text>
+        </View>
+        <Button
+          title="Cerrar sesión"
+          variant="neutralGhost"
+          size="md"
+          onPress={confirmSignOut}
+          loading={signingOut}
+          style={{ minHeight: 40, paddingHorizontal: 10 }}
+        />
       </View>
 
       <Segment
