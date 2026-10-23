@@ -470,3 +470,63 @@ h1 {
   color: var(--text-muted);
   margin-top: 10px;
 }
+
+.driver-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+
+.driver-card .driver-photo,
+.driver-card .driver-initial {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.driver-card .driver-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.driver-card .driver-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.driver-card .driver-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.driver-card .driver-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.driver-card .driver-call {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+}
