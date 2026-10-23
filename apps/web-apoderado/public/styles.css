@@ -4,20 +4,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #f5f8fd;
+  /* Identidad "furgón escolar chileno": amarillo + negro sobre fondo cálido.
+     El amarillo es la marca; la tinta da estructura y mantiene el contraste. */
+  --bg: #f7f4ec;
   --card: #ffffff;
-  --card-border: #dde6f2;
-  --text: #0b2a55;
-  --text-muted: #5b6b84;
-  --accent: #0b3a70;
-  --accent-soft: #eaf2ff;
-  --blue: #2684ff;
-  --yellow: #ffd23f;
+  --card-border: #e9e3d5;
+  --text: #1c1b17;
+  --text-muted: #6b6657;
+  --accent: #1c1b17;
+  --accent-soft: #fff4d6;
+  --blue: #1c1b17;
+  --yellow: #ffb703;
   --success: #19b96b;
   --success-bg: #e8f8ef;
-  --danger: #ef4444;
-  --chip-bg: #eaf2ff;
-  --shadow: 0 16px 34px -18px rgba(11, 42, 85, 0.35);
+  --danger: #c2453c;
+  --chip-bg: #fff4d6;
+  --shadow: 0 16px 34px -18px rgba(28, 27, 23, 0.26);
   --font-display: 'Bricolage Grotesque', Georgia, serif;
   --font-body: 'Figtree', system-ui, -apple-system, sans-serif;
 }
@@ -153,8 +155,8 @@ h1 {
   height: 56px;
   border: 0;
   border-radius: 16px;
-  background: var(--success);
-  color: #fff;
+  background: var(--yellow);
+  color: var(--text);
   font-family: var(--font-body);
   font-size: 17px;
   font-weight: 800;
@@ -183,7 +185,7 @@ h1 {
   background: var(--yellow);
   border-radius: 22px;
   padding: 20px 22px 18px;
-  color: #10243f;
+  color: #1c1b17;
   text-align: center;
   box-shadow: 0 16px 30px -16px rgba(255, 195, 30, 0.7);
 }
@@ -195,8 +197,8 @@ h1 {
   margin-bottom: 8px;
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(11, 42, 85, 0.11);
-  color: #10243f;
+  background: rgba(28, 27, 23, 0.1);
+  color: #1c1b17;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -290,7 +292,7 @@ h1 {
   height: 260px;
   border-radius: 16px;
   overflow: hidden;
-  background: linear-gradient(135deg, #edf4ff, #f8fbff);
+  background: linear-gradient(135deg, #f3efe4, #faf7ef);
   border: 1px solid var(--card-border);
 }
 
@@ -318,7 +320,7 @@ h1 {
 .rs-map-marker.vehicle {
   background: var(--blue);
   border-color: #ffffff;
-  outline: 3px solid rgba(38, 132, 255, 0.25);
+  outline: 3px solid rgba(28, 27, 23, 0.18);
 }
 
 .rs-map-marker span {
@@ -399,7 +401,7 @@ h1 {
 /* El primer paso aún no cumplido es el "actual": anillo azul. */
 .step.done + .step:not(.done) .dot {
   border-color: var(--blue);
-  box-shadow: 0 0 0 4px rgba(38, 132, 255, 0.15);
+  box-shadow: 0 0 0 4px rgba(28, 27, 23, 0.15);
 }
 
 .step-label {
