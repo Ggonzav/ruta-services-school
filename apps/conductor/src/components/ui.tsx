@@ -62,7 +62,7 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
 type ButtonVariant = 'primary' | 'success' | 'danger' | 'ghost' | 'neutralGhost';
 
 const buttonPalette: Record<ButtonVariant, { bg: string; fg: string; border?: string; spinner: string }> = {
-  primary: { bg: colors.accent, fg: colors.white, spinner: colors.white },
+  primary: { bg: colors.yellow, fg: colors.text, spinner: colors.text },
   success: { bg: colors.success, fg: colors.white, spinner: colors.white },
   danger: { bg: colors.dangerBg, fg: colors.danger, spinner: colors.danger },
   ghost: { bg: 'transparent', fg: colors.accent, border: colors.accent, spinner: colors.accent },
@@ -210,12 +210,12 @@ export function Avatar({ name, size = 82 }: { name: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: colors.blue,
+        backgroundColor: colors.yellow,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: colors.white, fontWeight: '800', fontSize: size * 0.42 }}>{initial}</Text>
+      <Text style={{ color: colors.text, fontWeight: '800', fontSize: size * 0.42 }}>{initial}</Text>
     </View>
   );
 }

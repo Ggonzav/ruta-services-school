@@ -3,21 +3,24 @@ import type { TextStyle, ViewStyle } from 'react-native';
 // Tokens visuales de RutaSegura. Los mismos valores viven en la web del
 // apoderado (apps/web-apoderado/public/styles.css) para que las dos apps se
 // lean como un mismo producto.
+// Identidad "furgón escolar chileno": amarillo + negro, sobre fondo cálido.
+// El amarillo (yellow) es la marca; la tinta (accent/blue) da la estructura y
+// mantiene alto contraste (texto negro sobre amarillo, blanco sobre tinta).
 export const colors = {
-  bg: '#F5F8FD',
+  bg: '#F7F4EC',
   card: '#FFFFFF',
-  cardBorder: '#DDE6F2',
-  text: '#0B2A55',
-  textMuted: '#5B6B84',
-  accent: '#0B3A70',
-  accentSoft: '#EAF2FF',
-  blue: '#2684FF',
-  yellow: '#FFD23F',
+  cardBorder: '#E9E3D5',
+  text: '#1C1B17',
+  textMuted: '#6B6657',
+  accent: '#1C1B17',
+  accentSoft: '#FFF4D6',
+  blue: '#1C1B17',
+  yellow: '#FFB703',
   success: '#19B96B',
   successBg: '#E8F8EF',
-  danger: '#EF4444',
-  dangerBg: '#FEECEC',
-  chipBg: '#EAF2FF',
+  danger: '#C2453C',
+  dangerBg: '#F6DED9',
+  chipBg: '#FFF4D6',
   white: '#FFFFFF',
 } as const;
 
@@ -28,7 +31,7 @@ export const radius = { sm: 10, md: 14, lg: 16, xl: 22, pill: 999 } as const;
 
 // Sombra suave para tarjetas y botones elevados (iOS + Android).
 export const shadowCard: ViewStyle = {
-  shadowColor: '#0B2A55',
+  shadowColor: '#1C1B17',
   shadowOpacity: 0.08,
   shadowRadius: 14,
   shadowOffset: { width: 0, height: 8 },
