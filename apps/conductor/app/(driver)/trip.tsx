@@ -7,7 +7,7 @@ import { stopSharingLocation, refreshLocation, locationStatus } from '@/lib/back
 import { tripProgress, type Stop } from '@/lib/tripLogic';
 import { colors, radius, typography } from '@/lib/theme';
 import { directionForKind, type RouteDirection, type RouteKind } from '../../../../shared/rutasegura-api';
-import { Avatar, Button, Card, Eyebrow, Loading, Pill, ProgressBar, Screen, Snackbar, Spacer } from '@/components/ui';
+import { Avatar, Badge, Button, Card, Eyebrow, Loading, Screen, Snackbar, Spacer } from '@/components/ui';
 import { DriverHeader } from '@/components/driver-shell';
 
 // El conductor elige a quién atiende ahora (en cualquier orden). Al tocar un
@@ -87,6 +87,8 @@ export default function TripScreen() {
 
   const isToSchool = direction === 'to_school';
   const progress = tripProgress(stops, settled);
+  const currentStep = progress.total > 0 ? Math.min(progress.done + 1, progress.total) : 0;
+  const nextStep = currentStep < progress.total ? currentStep + 1 : null;
   const pending = stops.filter((s) => !settled.has(s.studentId)).sort((a, b) => a.seq - b.seq);
   const current = targetId ? pending.find((s) => s.studentId === targetId) ?? null : null;
   const others = pending.filter((s) => s.studentId !== current?.studentId);
@@ -150,12 +152,22 @@ export default function TripScreen() {
   return (
     <Screen style={{ gap: 14 }}>
       <DriverHeader tripId={tripId} />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Pill label="En recorrido" />
-        <Text style={{ color: gps.confirmed ? colors.success : colors.textMuted, fontWeight: '800', flexShrink: 1 }}>{gps.label}</Text>
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        <StatusChip symbol="●" label="En recorrido" confirmed />
+        <StatusChip symbol={gps.confirmed ? '✓' : '○'} label={gps.confirmed ? 'Ubicación recibida' : gps.label} confirmed={gps.confirmed} />
       </View>
 
-      <ProgressBar done={progress.done} total={progress.total} />
+      <View style={{ gap: 5 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <StepCircle value={currentStep || '–'} active />
+          <View style={{ height: 2, flex: 1, backgroundColor: colors.cardBorder }} />
+          <StepCircle value={nextStep ?? (progress.done === progress.total && progress.total > 0 ? '✓' : '–')} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: colors.navy, fontSize: 12, fontWeight: '800' }}>{currentStep} de {progress.total}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700' }}>Estudiantes</Text>
+        </View>
+      </View>
 
       {current ? (
         <>
@@ -164,7 +176,14 @@ export default function TripScreen() {
             <Avatar name={current.fullName} />
             <Text style={[typography.h2, { textAlign: 'center' }]}>{current.fullName}</Text>
             <Text style={[typography.small, { textAlign: 'center' }]}>{current.address}</Text>
+            <Badge label={isToSchool ? 'Pendiente de subida' : 'Pendiente de bajada'} tone="muted" />
           </Card>
+          <View style={{ flexDirection: 'row', gap: 10, backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: 13 }}>
+            <Text style={{ color: colors.navy, fontSize: 18 }}>●</Text>
+            <Text style={[typography.small, { color: colors.navy, flex: 1, lineHeight: 18 }]}>
+              Cuando el estudiante {isToSchool ? 'suba al' : 'baje del'} furgón, la app avanzará automáticamente a la siguiente parada.
+            </Text>
+          </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button
               title={isToSchool ? 'Subió' : 'Bajó'}
@@ -229,7 +248,6 @@ export default function TripScreen() {
 
       <Button
         title="Finalizar recorrido"
-        variant="neutralGhost"
         size="md"
         onPress={handleFinish}
         style={{ marginBottom: 20 }}
@@ -237,5 +255,22 @@ export default function TripScreen() {
 
       {toast && <Snackbar text={toast} />}
     </Screen>
+  );
+}
+
+function StatusChip({ symbol, label, confirmed }: { symbol: string; label: string; confirmed: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: confirmed ? colors.successBg : colors.chipBg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 }}>
+      <Text style={{ color: confirmed ? colors.success : colors.textMuted, fontWeight: '900' }}>{symbol}</Text>
+      <Text style={{ color: confirmed ? colors.success : colors.textMuted, fontSize: 12, fontWeight: '800' }}>{label}</Text>
+    </View>
+  );
+}
+
+function StepCircle({ value, active = false }: { value: number | string; active?: boolean }) {
+  return (
+    <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? colors.yellow : colors.card, borderWidth: active ? 0 : 2, borderColor: colors.cardBorder }}>
+      <Text style={{ color: colors.navy, fontWeight: '900', fontSize: 15 }}>{value}</Text>
+    </View>
   );
 }

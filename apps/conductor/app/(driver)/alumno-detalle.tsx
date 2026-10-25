@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Share, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { createInviteLink, hasActiveTrip, listStudents, type StudentAdmin } from '@/lib/tripApi';
+import { createInviteLink, hasActiveTrip, listStudents, removeStudentFromRoute, type StudentAdmin, type StudentAssignment } from '@/lib/tripApi';
 import { Avatar, Badge, Button, Card, Loading, Screen } from '@/components/ui';
 import { DriverHeader } from '@/components/driver-shell';
 import { colors, typography } from '@/lib/theme';
@@ -39,6 +39,47 @@ export default function AlumnoDetalleScreen() {
     } finally {
       setSharing(false);
     }
+  }
+
+  function removeFromRoute() {
+    if (!student || active || student.assignments.length === 0) return;
+    const remove = (assignment: StudentAssignment) => {
+      const label = assignment.kind === 'AM' ? 'Ida' : 'Vuelta';
+      Alert.alert(
+        `Quitar de ${label}`,
+        `${student.fullName} dejará de aparecer en la ruta de ${label.toLowerCase()}.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Quitar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await removeStudentFromRoute(student.id, assignment.routeId);
+                await load();
+              } catch (error) {
+                const message = error instanceof Error && (error.message.includes('route_has_active_trip') || error.message.includes('student_has_active_trip'))
+                  ? 'Finaliza el recorrido en curso antes de cambiar las rutas.'
+                  : 'No pudimos quitar al alumno de la ruta. Inténtalo nuevamente.';
+                Alert.alert('No se pudo quitar de la ruta', message);
+              }
+            },
+          },
+        ]
+      );
+    };
+
+    if (student.assignments.length === 1) {
+      remove(student.assignments[0]);
+      return;
+    }
+    Alert.alert('Quitar de la ruta', 'Selecciona el trayecto que quieres quitar.', [
+      ...student.assignments.map((assignment) => ({
+        text: assignment.kind === 'AM' ? 'Quitar de Ida' : 'Quitar de Vuelta',
+        onPress: () => remove(assignment),
+      })),
+      { text: 'Cancelar', style: 'cancel' as const },
+    ]);
   }
 
   if (loading) return <Loading />;
@@ -86,6 +127,7 @@ export default function AlumnoDetalleScreen() {
 
       <Button title="Editar alumno" onPress={() => router.push({ pathname: '/(driver)/alumno', params: { id: student.id } })} disabled={active} />
       <Button title="Invitar apoderado" variant="ghost" size="md" onPress={invite} loading={sharing} />
+      <Button title="Quitar de la ruta" variant="danger" size="md" onPress={removeFromRoute} disabled={active || student.assignments.length === 0} />
     </Screen>
   );
 }
