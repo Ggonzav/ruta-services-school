@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, AppState, Pressable, Text, View } from 'react-native';
+import { Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { finishTrip, markStop, setTarget, getTarget } from '@/lib/tripApi';
@@ -150,8 +150,13 @@ export default function TripScreen() {
   if (loading) return <Loading />;
 
   return (
-    <Screen style={{ gap: 14 }}>
+    <Screen style={{ gap: 0 }}>
       <DriverHeader tripId={tripId} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: 14, paddingTop: 14, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
         <StatusChip symbol="●" label="En recorrido" confirmed />
         <StatusChip symbol={gps.confirmed ? '✓' : '○'} label={gps.confirmed ? 'Ubicación recibida' : gps.label} confirmed={gps.confirmed} />
@@ -244,14 +249,12 @@ export default function TripScreen() {
         </View>
       )}
 
-      <Spacer />
-
       <Button
         title="Finalizar recorrido"
         size="md"
         onPress={handleFinish}
-        style={{ marginBottom: 20 }}
       />
+      </ScrollView>
 
       {toast && <Snackbar text={toast} />}
     </Screen>
