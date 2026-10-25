@@ -21087,7 +21087,7 @@ async function handleInvite(token) {
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "";
-      errorEl.textContent = message.includes("Anonymous sign-ins are disabled") ? "Falta activar el login an\xF3nimo en Supabase para que el apoderado pueda abrir este link." : "No pudimos validar la invitaci\xF3n. \xBFEl link sigue vigente?";
+      errorEl.textContent = message.includes("Anonymous sign-ins are disabled") ? "Falta activar el login an\xF3nimo en Supabase para que el apoderado pueda abrir este link." : message.includes("guardian_name_mismatch") ? "El nombre no coincide con el apoderado registrado para este alumno. Revisa el nombre o pide una nueva invitaci\xF3n al transportista." : message.includes("guardian_identity_not_configured") ? "Esta invitaci\xF3n todav\xEDa no tiene un apoderado configurado. Pide al transportista que complete sus datos." : "No pudimos validar la invitaci\xF3n. \xBFEl link sigue vigente?";
       errorEl.hidden = false;
       button.removeAttribute("disabled");
     }
