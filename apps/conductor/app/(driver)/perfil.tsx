@@ -80,9 +80,6 @@ export default function PerfilScreen() {
       <View style={{ alignItems: 'center', gap: 8 }}>
         <Avatar name={fullName || 'Conductor'} size={72} />
         <Text style={typography.h2}>Mi perfil</Text>
-        <Text style={[typography.small, { textAlign: 'center' }]}>
-          Esto es lo que verá el apoderado como conductor del furgón.
-        </Text>
       </View>
 
       <Field label="Nombre" placeholder="Nombre y apellido" value={fullName} onChangeText={setFullName} />

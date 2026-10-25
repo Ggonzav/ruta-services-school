@@ -1,12 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import type { RouteKind } from '../../../../shared/rutasegura-api';
 import { supabase } from '@/lib/supabase';
 import {
-  createInviteLink,
   fetchCarrierRouteIdByKind,
   saveStudentProfile,
 } from '@/lib/tripApi';
@@ -30,7 +28,6 @@ export default function AlumnoScreen() {
   const isEdit = !!studentId;
 
   const [loading, setLoading] = useState(isEdit);
-  const [originalName, setOriginalName] = useState('');
   const [name, setName] = useState('');
   const [selected, setSelected] = useState({ AM: true, PM: true });
   const [guardianName, setGuardianName] = useState('');
@@ -57,7 +54,6 @@ export default function AlumnoScreen() {
         return;
       }
       setName(data.full_name);
-      setOriginalName(data.full_name);
       const map: Partial<Record<RouteKind, KindAssignment>> = {};
       for (const rs of (data as any).route_stops ?? []) {
         const k = (Array.isArray(rs.routes) ? rs.routes[0]?.kind : rs.routes?.kind) as RouteKind | undefined;
@@ -159,18 +155,6 @@ export default function AlumnoScreen() {
     }
   }
 
-  async function handleInvite() {
-    if (!studentId) return;
-    try {
-      const webBaseUrl = (Constants.expoConfig?.extra?.webBaseUrl as string) ?? '';
-      const firstName = (name || originalName).split(' ')[0];
-      const { shareText } = await createInviteLink(studentId, firstName, webBaseUrl);
-      await Share.share({ message: shareText });
-    } catch (e) {
-      Alert.alert('No se pudo crear la invitación', e instanceof Error ? e.message : String(e));
-    }
-  }
-
   if (loading) return <Loading />;
 
   return (
@@ -237,13 +221,6 @@ export default function AlumnoScreen() {
         {error && <ErrorText>{error}</ErrorText>}
 
         <Button title={isEdit ? 'Guardar cambios' : 'Guardar alumno'} onPress={handleSave} loading={saving} disabled={resolving} />
-
-        {isEdit && (
-          <>
-            <Button title="Invitar apoderado" variant="ghost" size="md" onPress={handleInvite} />
-
-          </>
-        )}
       </ScrollView>
       <Spacer />
     </Screen>

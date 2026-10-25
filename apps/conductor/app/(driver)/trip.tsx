@@ -179,7 +179,7 @@ export default function TripScreen() {
             <Badge label={isToSchool ? 'Pendiente de subida' : 'Pendiente de bajada'} tone="muted" />
           </Card>
           <View style={{ flexDirection: 'row', gap: 10, backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: 13 }}>
-            <Text style={{ color: colors.navy, fontSize: 18 }}>●</Text>
+            <Text style={{ color: colors.navy, fontSize: 18 }}>📍</Text>
             <Text style={[typography.small, { color: colors.navy, flex: 1, lineHeight: 18 }]}>
               Cuando el estudiante {isToSchool ? 'suba al' : 'baje del'} furgón, la app avanzará automáticamente a la siguiente parada.
             </Text>

@@ -135,12 +135,14 @@ export default function HomeScreen() {
           { value: 'PM', label: 'Vuelta' },
         ]}
       />
+      <Text style={{ color: colors.blue, fontSize: 14, fontWeight: '800', textAlign: 'center' }}>
+        {routeDirectionLabel}
+      </Text>
 
       <Card style={{ flexShrink: 1 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <View style={{ flexShrink: 1, paddingRight: 10 }}>
             <Text style={typography.title}>{route.name}</Text>
-            <Text style={{ fontSize: 12.5, color: colors.blue, fontWeight: '800', marginTop: 1 }}>{routeDirectionLabel}</Text>
             <Text style={typography.small}>
               {route.stops.length} alumnos · {route.stops.length} paradas
             </Text>
@@ -148,6 +150,7 @@ export default function HomeScreen() {
           <Badge label="Lista" />
         </View>
         <Text style={[typography.small, { marginBottom: 8 }]}>Horario {route.departureTime}</Text>
+        <Text style={[typography.label, { marginBottom: 8 }]}>ALUMNOS DE ESTA RUTA</Text>
         <ScrollView style={{ maxHeight: 220 }}>
           <View style={{ gap: 9 }}>
             {route.stops.map((item, index) => (
@@ -200,12 +203,6 @@ export default function HomeScreen() {
         variant="ghost"
         size="md"
         onPress={() => router.push('/(driver)/compartir')}
-      />
-      <Button
-        title="Mi perfil"
-        variant="neutralGhost"
-        size="md"
-        onPress={() => router.push('/(driver)/perfil')}
         style={{ marginBottom: 12 }}
       />
     </Screen>
