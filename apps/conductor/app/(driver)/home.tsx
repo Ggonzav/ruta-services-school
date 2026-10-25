@@ -1,11 +1,11 @@
 import { tripClock } from '../../../../shared/trip-clock';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchTodayRoute, startTrip, type TodayRoute } from '@/lib/tripApi';
 import { startSharingLocation } from '@/lib/backgroundLocation';
 import { colors, typography } from '@/lib/theme';
-import { Badge, Button, Card, ErrorText, Loading, Screen, Segment, Spacer } from '@/components/ui';
+import { Avatar, Button, Card, ErrorText, Loading, Screen, Segment } from '@/components/ui';
 import { DriverHeader } from '@/components/driver-shell';
 
 // Pantalla 1 del prototipo visual: "Iniciar recorrido". AM/PM se elige acá
@@ -120,10 +120,11 @@ export default function HomeScreen() {
   const routeDirectionLabel = isToSchool ? 'Casa → Colegio' : 'Colegio → Casa';
 
   return (
-    <Screen>
+    <Screen style={{ gap: 0 }}>
+      <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
       <DriverHeader />
       <View>
-        <Text style={typography.display}>Mis rutas</Text>
+        <Text style={[typography.display, { fontSize: 30 }]}>Mis rutas</Text>
         <Text style={typography.small}>{route.vehicleNickname}</Text>
       </View>
 
@@ -131,81 +132,75 @@ export default function HomeScreen() {
         value={kind}
         onChange={setKind}
         options={[
-          { value: 'AM', label: 'Ida' },
-          { value: 'PM', label: 'Vuelta' },
+          { value: 'AM', label: 'Ida', detail: 'Casa → Colegio' },
+          { value: 'PM', label: 'Vuelta', detail: 'Colegio → Casa' },
         ]}
       />
-      <Text style={{ color: colors.blue, fontSize: 14, fontWeight: '800', textAlign: 'center' }}>
-        {routeDirectionLabel}
-      </Text>
 
-      <Card style={{ flexShrink: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+      <Card style={{ gap: 16 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flexShrink: 1, paddingRight: 10 }}>
             <Text style={typography.title}>{route.name}</Text>
-            <Text style={typography.small}>
-              {route.stops.length} alumnos · {route.stops.length} paradas
-            </Text>
+            <Text style={[typography.small, { fontWeight: '700' }]}>{routeDirectionLabel}</Text>
           </View>
-          <Badge label="Lista" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.chipBg, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: colors.navy, fontSize: 14 }}>◷</Text>
+            <Text style={{ color: colors.navy, fontWeight: '800', fontSize: 13 }}>{route.departureTime.slice(0, 5)}</Text>
+          </View>
         </View>
-        <Text style={[typography.small, { marginBottom: 8 }]}>Horario {route.departureTime}</Text>
-        <Text style={[typography.label, { marginBottom: 8 }]}>ALUMNOS DE ESTA RUTA</Text>
-        <ScrollView style={{ maxHeight: 220 }}>
-          <View style={{ gap: 9 }}>
+        <View>
             {route.stops.map((item, index) => (
-              <View key={item.studentId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    backgroundColor: colors.blue,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ color: colors.white, fontSize: 13, fontWeight: '800' }}>{index + 1}</Text>
+              <View key={item.studentId}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                  <Avatar name={item.fullName} size={48} />
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: colors.text }}>{item.fullName}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 24 }}>›</Text>
                 </View>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>{item.fullName}</Text>
-                  <Text style={typography.small}>{item.address}</Text>
-                </View>
+                {index < route.stops.length - 1 ? <View style={{ height: 1, backgroundColor: colors.cardBorder }} /> : null}
               </View>
             ))}
-          </View>
-        </ScrollView>
+        </View>
+        <Button
+          title={isToSchool ? '▶  Iniciar ida' : '▶  Iniciar vuelta'}
+          variant="success"
+          onPress={handleStart}
+          loading={starting}
+          disabled={route.stops.length === 0}
+        />
       </Card>
 
       {permissionError && <ErrorText>{permissionError}</ErrorText>}
 
-      <Spacer />
-
-      <Text style={[typography.small, { textAlign: 'center' }]}>
-        Tu ubicación se comparte solo con los apoderados de esta ruta, y solo mientras el recorrido esté activo.
-      </Text>
-
-      <Button
-        title={isToSchool ? 'Iniciar ida' : 'Iniciar vuelta'}
-        variant="success"
-        onPress={handleStart}
-        loading={starting}
-        disabled={route.stops.length === 0}
-      />
-      <Button
-        title="Mis alumnos"
-        variant="ghost"
-        size="md"
-        onPress={() => router.push('/(driver)/alumnos')}
-      />
-      <Button
-        title="Invitar apoderados"
-        variant="ghost"
-        size="md"
-        onPress={() => router.push('/(driver)/compartir')}
-        style={{ marginBottom: 12 }}
-      />
+      <HomeLink icon="♙" label="Mis alumnos" onPress={() => router.push('/(driver)/alumnos')} />
+      <HomeLink icon="♙+" label="Invitar apoderados" onPress={() => router.push('/(driver)/compartir')} />
+      </ScrollView>
     </Screen>
+  );
+}
+
+function HomeLink({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 76,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.cardBorder,
+        backgroundColor: colors.card,
+        opacity: pressed ? 0.82 : 1,
+      })}
+    >
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.chipBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.navy, fontWeight: '900', fontSize: 17 }}>{icon}</Text>
+      </View>
+      <Text style={{ flex: 1, color: colors.navy, fontWeight: '800', fontSize: 17 }}>{label}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 26 }}>›</Text>
+    </Pressable>
   );
 }
 
