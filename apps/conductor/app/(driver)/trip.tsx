@@ -8,6 +8,7 @@ import { tripProgress, type Stop } from '@/lib/tripLogic';
 import { colors, radius, typography } from '@/lib/theme';
 import { directionForKind, type RouteDirection, type RouteKind } from '../../../../shared/rutasegura-api';
 import { Avatar, Button, Card, Eyebrow, Loading, Pill, ProgressBar, Screen, Snackbar, Spacer } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // El conductor elige a quién atiende ahora (en cualquier orden). Al tocar un
 // alumno, ese pasa a ser el "destino actual" del furgón (driver_set_target),
@@ -148,6 +149,7 @@ export default function TripScreen() {
 
   return (
     <Screen style={{ gap: 14 }}>
+      <DriverHeader tripId={tripId} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Pill label="En recorrido" />
         <Text style={{ color: gps.confirmed ? colors.success : colors.textMuted, fontWeight: '800', flexShrink: 1 }}>{gps.label}</Text>

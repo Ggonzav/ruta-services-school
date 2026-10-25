@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { Share } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { createInviteLink } from '@/lib/tripApi';
 import { colors } from '@/lib/theme';
+import { Button, Card, Loading, Screen } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 interface StudentRow {
   id: string;
@@ -48,30 +50,13 @@ export default function CompartirScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
+    return <Loading />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 56, paddingHorizontal: 20, gap: 16 }}>
-      <Pressable
-        onPress={() => router.replace('/(driver)/home')}
-        style={{
-          alignSelf: 'flex-start',
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          borderRadius: 999,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.cardBorder,
-        }}
-      >
-        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>← Volver</Text>
-      </Pressable>
-      <Text style={{ fontSize: 34, fontWeight: '700' }}>Invitar apoderados</Text>
+    <Screen>
+      <DriverHeader />
+      <Text style={{ fontSize: 30, fontWeight: '800', color: colors.text }}>Invitar apoderados</Text>
       <Text style={{ fontSize: 16, color: colors.textMuted }}>
         Cada alumno tiene su propio link. El apoderado lo abre, pone su nombre y ya puede ver el
         recorrido — no necesita instalar nada.
@@ -81,40 +66,12 @@ export default function CompartirScreen() {
         keyExtractor={(s) => s.id}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         renderItem={({ item }) => (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.cardBorder,
-              borderRadius: 16,
-              padding: 16,
-            }}
-          >
-            <Text style={{ fontSize: 17, fontWeight: '600' }}>{item.fullName}</Text>
-            <Pressable
-              onPress={() => handleShare(item)}
-              disabled={sharingId === item.id}
-              style={{
-                height: 44,
-                paddingHorizontal: 18,
-                borderRadius: 12,
-                backgroundColor: colors.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {sharingId === item.id ? (
-                <ActivityIndicator />
-              ) : (
-                <Text style={{ fontWeight: '700' }}>Compartir</Text>
-              )}
-            </Pressable>
-          </View>
+          <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 }}>{item.fullName}</Text>
+            <Button title="Compartir" size="md" onPress={() => handleShare(item)} loading={sharingId === item.id} style={{ minWidth: 118 }} />
+          </Card>
         )}
       />
-    </View>
+    </Screen>
   );
 }

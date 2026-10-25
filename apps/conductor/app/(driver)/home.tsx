@@ -5,7 +5,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { fetchTodayRoute, startTrip, type TodayRoute } from '@/lib/tripApi';
 import { startSharingLocation } from '@/lib/backgroundLocation';
 import { colors, typography } from '@/lib/theme';
-import { Badge, Button, Card, ErrorText, Eyebrow, Loading, Screen, Segment, Spacer } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Loading, Screen, Segment, Spacer } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // Pantalla 1 del prototipo visual: "Iniciar recorrido". AM/PM se elige acá
 // (por defecto AM antes de las 13:00, PM después) — el MVP no soporta más
@@ -96,6 +97,7 @@ export default function HomeScreen() {
   if (loadError) {
     return (
       <Screen style={{ paddingTop: 64, gap: 16 }}>
+        <DriverHeader />
         <Text style={typography.h2}>No pudimos cargar la ruta</Text>
         <Text style={typography.muted}>{loadError}</Text>
         <Button title="Reintentar" onPress={load} />
@@ -106,8 +108,9 @@ export default function HomeScreen() {
   if (!route) {
     return (
       <Screen style={{ paddingTop: 64 }}>
+        <DriverHeader />
         <Text style={typography.muted}>
-          No tienes una ruta {kind} configurada todavía. Pide al equipo que te la cree.
+          No tienes una ruta de {kind === 'AM' ? 'ida' : 'vuelta'} configurada todavía. Pide al equipo que te la cree.
         </Text>
       </Screen>
     );
@@ -118,8 +121,8 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      <DriverHeader />
       <View>
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
         <Text style={typography.display}>Mis rutas</Text>
         <Text style={typography.small}>{route.vehicleNickname}</Text>
       </View>
@@ -128,8 +131,8 @@ export default function HomeScreen() {
         value={kind}
         onChange={setKind}
         options={[
-          { value: 'AM', label: 'Mañana' },
-          { value: 'PM', label: 'Tarde' },
+          { value: 'AM', label: 'Ida' },
+          { value: 'PM', label: 'Vuelta' },
         ]}
       />
 

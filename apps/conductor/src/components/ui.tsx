@@ -161,10 +161,10 @@ export function Segment<T extends string>({
               borderRadius: 10,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: active ? colors.blue : 'transparent',
+              backgroundColor: active ? colors.yellow : 'transparent',
             }}
           >
-            <Text style={{ color: active ? colors.white : colors.text, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
+            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
           </Pressable>
         );
       })}

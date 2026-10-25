@@ -101,3 +101,12 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Revisión independiente `/root/push_target_integration_review`: 3/3 tests perfil aprobados, sin bloqueantes; resultado tardío de geocodificación corregido con versión de dirección (verificado por inspección, no test UI). TypeScript final y build web aprobados. Pendiente prueba iPhone y aplicación autorizada de0014.
 
 - Operación autorizada: aplicada `0014_student_profile.sql` a `jfjysvvrpjemcdkqutmw`. Dry-run incluyó únicamente 0014; db push completó correctamente. Sin seeds, reset, merge ni publicación web. Prueba del formulario en iPhone pendiente.
+
+## 2026-10-24 — App conductor: identidad y navegación (en revisión)
+
+- Rama `codex/conductor-ui-stages-1-3`: la app del conductor adopta cabecera navy con pin amarillo y furgón, y muestra Ida/Vuelta manteniendo AM/PM como contrato interno.
+- Se agrega un menú lateral propio, sin dependencias nuevas, con acceso a rutas, alumnos, invitaciones, perfil, ayuda, cierre de sesión y retorno al recorrido activo.
+- Mis alumnos incorpora dirección y contacto guardado, más una pantalla de detalle antes de editar o compartir la invitación. Invitaciones y perfil usan la misma cabecera y componentes visuales.
+- Sin migraciones, cambios de RLS/RPC, mapa nativo, cámara, publicación ni cambios en la web del apoderado. La configuración local de `public/config.js` permanece fuera del alcance.
+- QA del autor: 162/162 tests, TypeScript conductor y export del bundle iOS aprobados. Prueba física y revisión independiente pendientes.
+- Reversión: revertir el commit de interfaz; no hay datos ni configuración remota que revertir.

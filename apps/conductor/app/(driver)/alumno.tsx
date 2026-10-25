@@ -11,7 +11,8 @@ import {
   saveStudentProfile,
 } from '@/lib/tripApi';
 import { colors, radius, typography } from '@/lib/theme';
-import { Button, Card, ErrorText, Eyebrow, Field, Loading, Screen, Spacer } from '@/components/ui';
+import { Button, Card, ErrorText, Field, Loading, Screen, Spacer } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 interface KindAssignment {
   routeId: string;
@@ -174,6 +175,7 @@ export default function AlumnoScreen() {
 
   return (
     <Screen>
+      <DriverHeader />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text
           onPress={() => router.replace('/(driver)/alumnos')}
@@ -183,7 +185,6 @@ export default function AlumnoScreen() {
         </Text>
       </View>
       <View>
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
         <Text style={typography.h2}>{isEdit ? 'Editar alumno' : 'Nuevo alumno'}</Text>
       </View>
 
@@ -197,7 +198,7 @@ export default function AlumnoScreen() {
           {(['AM', 'PM'] as const).map(k => (
             <Pressable key={k} accessibilityRole="checkbox" accessibilityState={{ checked: selected[k] }}
               onPress={() => setSelected(prev => ({ ...prev, [k]: !prev[k] }))}>
-              <Text style={typography.label}>{selected[k] ? '☑' : '☐'} {k === 'AM' ? 'Ida al colegio' : 'Regreso a casa'}</Text>
+              <Text style={typography.label}>{selected[k] ? '☑' : '☐'} {k === 'AM' ? 'Ida al colegio' : 'Vuelta a casa'}</Text>
             </Pressable>
           ))}
           <Text style={typography.small}>Desmarca un trayecto para retirar al alumno de esa ruta.</Text>
