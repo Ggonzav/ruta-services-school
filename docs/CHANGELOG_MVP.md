@@ -101,3 +101,11 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Revisión independiente `/root/push_target_integration_review`: 3/3 tests perfil aprobados, sin bloqueantes; resultado tardío de geocodificación corregido con versión de dirección (verificado por inspección, no test UI). TypeScript final y build web aprobados. Pendiente prueba iPhone y aplicación autorizada de0014.
 
 - Operación autorizada: aplicada `0014_student_profile.sql` a `jfjysvvrpjemcdkqutmw`. Dry-run incluyó únicamente 0014; db push completó correctamente. Sin seeds, reset, merge ni publicación web. Prueba del formulario en iPhone pendiente.
+
+## 2026-10-26 — Mapa del apoderado muestra solo el trayecto pendiente (en revisión)
+
+- La línea comienza exactamente en la última posición recibida del furgón y descarta cualquier tramo de geometría anterior al punto más cercano al GPS actual.
+- Cuando el alumno es la próxima parada, el mapa encuadra únicamente el furgón, el domicilio y la línea pendiente; el colegio deja de ampliar ese encuadre.
+- Sin cambios en el umbral de aviso: continúa en 500 metros. No cambia RLS, RPC, migraciones ni la persistencia de ubicación.
+- QA del autor: 166/166 pruebas, TypeScript web y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual con el furgón fuera de la ruta.
+- Reversión: revertir el helper y el ajuste de `paintMap`, regenerar `public/app.js` y volver a publicar la web.
