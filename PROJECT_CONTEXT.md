@@ -51,7 +51,7 @@ shared/                 rutasegura-api, trip-clock (+ tests)
 supabase/
   migrations/           0001–0015
   functions/            update-eta, send-push, geocode-address
-  tests/                pruebas de RLS/RPC/flujo (PGlite)
+  tests/                pruebas de RLS/RPC/flujo (PGlite) + support/{db,fixtures}
   demo/                 datos-prueba.sql
 scripts/                push/{generate-keys.mjs, schedule.sql}, geocode-demo-addresses.mjs, set-web-base-url.mjs
 docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW, QA_*, CHANGELOG_MVP, WORKING_AGREEMENT, maqueta-conductor/, reviews/
@@ -64,21 +64,21 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 - Ruta del día, iniciar/finalizar recorrido, marcar subió/bajó/no viaja, resumen (`0004`, `0007`, `0010`).
 - **El conductor elige la próxima parada** con destino privado + revisión (`0011_trip_target.sql`).
 - ETA en vivo + mapa + **tres estados del apoderado** (esperando / va hacia tu casa / sin señal) + **confirmaciones** (`app.ts`, `eta-view.ts`).
-- Invitaciones `/i/<token>` + canje anónimo (`0003`, `redeem_invite`).
+- Invitaciones `/i/<token>` + canje anónimo (`0003`, `redeem_invite`) — ver §8 sobre el modelo *bearer token* y su caveat de privacidad.
 - **Mis alumnos**: alta/edición, asignación a ruta, baja de ruta, con **bloqueo durante recorrido activo** por triggers (`0013_student_admin.sql`).
 - Perfil del conductor + **cerrar sesión**; **tarjeta del conductor** para el apoderado (`guardian_trip_driver`, `0015`).
 - **Web push** de cercanía con página cerrada (`0012`, `send-push`) — implementado en código.
 - **Perfil ampliado del alumno + apoderado** en una transacción (`carrier_save_student_profile`, `0014`).
 - Geocodificación de direcciones (Edge `geocode-address`).
-- Identidad visual (actualmente **negro cálido + amarillo**; ver §9 sobre el rediseño navy).
+- Identidad visual en `develop`: **negro cálido + amarillo** (`theme.ts`: `bg #F7F4EC`, `text/accent #1C1B17`, `yellow #FFB703`).
 
 **Parciales (≈):**
-- **Rediseño "propuesta final conductor"** (navy + menú lateral + mapa en el conductor): la **maqueta** está en `docs/maqueta-conductor/`; la implementación por etapas está **pendiente** (asignada a Codex).
+- **Rediseño "propuesta final conductor"** (navy + menú lateral + mapa en el conductor): la **maqueta** está en `docs/maqueta-conductor/`; las **etapas 1–3** (identidad navy, cabecera + menú lateral tipo drawer sin dependencias nuevas, pantallas de alumnos/invitar/perfil/detalle, y rediseño de "Mis rutas"/"Recorrido") están implementadas en el **PR #17** (rama `codex/conductor-ui-stages-1-3`, en revisión, draft) — **aún no mergeado a `develop`**. Pendiente dentro del PR: `home.tsx` tiene el `DriverHeader` dentro del `ScrollView` (el header se desplaza; en el resto de pantallas queda fijo) + prueba visual en iPhone.
 - **Despliegue del push**: el código existe, pero requiere generar VAPID, `secrets`, `schedule.sql` y prueba real; **no está confirmado** que esté aplicado/activo en el proyecto Supabase.
 - **Foto del conductor**: hoy se guarda solo una **URL** (`carriers.photo_url`), no hay subida real de imagen.
 
 **Pendientes:**
-- Menú lateral (drawer) en el conductor; **mapa nativo** en la app del conductor; **subida de foto** a Supabase Storage; **prueba en iPhone** del push con página cerrada; promoción `develop → main` (producción).
+- **Mapa nativo** en la app del conductor (etapa 4); **subida de foto** a Supabase Storage (etapa 5); **prueba en iPhone** del push con página cerrada; alinear la identidad de la **web del apoderado** al navy; promoción `develop → main` (producción).
 
 ## 6. Modelo de datos y APIs existentes (✔ de `supabase/migrations/`)
 
@@ -93,7 +93,7 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 - Alumnos (0013): `carrier_create_student`, `carrier_rename_student`, `carrier_assign_student_to_route`, `carrier_remove_student_from_route`.
 - Perfil alumno/apoderado (0014): `carrier_save_student_profile`.
 - Tarjeta conductor (0015): `guardian_trip_driver` (autorizada por recorrido; devuelve solo nombre/teléfono/foto).
-- Invitaciones (0003): `redeem_invite`.
+- Invitaciones (0003): `redeem_invite(p_token, p_full_name)` — el token fija al alumno; **no devuelve dirección**; en `develop` el nombre no se valida (ver §8).
 
 **Helpers de autorización (RLS, 0002):** `current_carrier_id`, `current_guardian_id`, `is_my_student`, `is_my_vehicle`, `is_my_route`, `is_my_trip`, `is_guardian_of_student`, `guardian_has_stop_in_route`, `guardian_has_stop_in_trip`.
 
@@ -102,14 +102,20 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 ## 7. Integraciones GPS, mapas y notificaciones
 
 - **GPS (✔):** `expo-location` + `expo-task-manager` (background) en el conductor → `update-eta`. La posición **no se historiza**; la última coordenada se expone por RLS solo mientras es **fresca** (≈ ventana de 2 min).
-- **Mapas (✔ web / pendiente conductor):** web del apoderado con **Leaflet** (`window.L`) + tiles **CARTO** (gratis) o **Mapbox** (token público `pk.`). La app del **conductor no tiene librería de mapa todavía** (hoy solo geocodifica direcciones). Geocoding vía Mapbox en la Edge `geocode-address` (token de servidor).
-- **Notificaciones (✔):** **Web Push** (VAPID), suscripción **por dispositivo y por alumno**, cola en base, revalidación de destino/revisión antes de cada envío (`authorize_push_delivery`), dedup por evento/revisión; endpoints limitados a FCM/Mozilla/Apple (anti-SSRF). En iPhone requiere "Agregar a pantalla de inicio". **No hay SMS** (analizado como fase 2 opcional por costo/consentimiento).
+- **Mapas (✔ web / pendiente conductor):** web del apoderado con **Leaflet** (`window.L`) + tiles **CARTO** (gratis) o **Mapbox** (token público `pk.`). La app del **conductor no tiene librería de mapa todavía** (hoy solo geocodifica direcciones); el mapa nativo es la etapa 4 del rediseño. Geocoding vía Mapbox en la Edge `geocode-address` (token de servidor).
+- **Notificaciones (✔):** **Web Push** (VAPID), suscripción **por dispositivo y por alumno**, cola en base, revalidación de destino/revisión antes de cada envío (`authorize_push_delivery`), dedup por evento/revisión; endpoints limitados a FCM/Mozilla/Apple (anti-SSRF). En iPhone requiere "Agregar a pantalla de inicio". **No hay SMS/WhatsApp** (analizado como fase 2 opcional por costo/consentimiento).
 
 ## 8. Estado de pruebas y principales problemas técnicos
 
-- **Pruebas (✔):** 23 archivos de test (Vitest + PGlite) que cubren RLS/aislamiento, flujo de recorrido, seguridad del destino, push (delivery/worker/subscripción), `student-admin`, `student-profile`, `driver-card`, ETA, invitaciones. **≈ En corridas recientes de esta sesión la suite pasó en verde (~157–162 casos según la rama).** Recomendado re-correr `npx vitest run` para la cifra exacta en `develop`.
-- **Problemas/caveats conocidos:**
-  - **≈ Estado del push en Supabase remoto no confirmado.** Según la última verificación del usuario, la base remota tenía aplicadas hasta `0014`; **`0015` queda pendiente** de `supabase db push`. Sin aplicar, la tarjeta de conductor falla en vivo.
+- **Pruebas (✔):** **24 archivos de test** (Vitest + PGlite, más `supabase/tests/support/{db,fixtures}.ts`) que cubren RLS/aislamiento, flujo de recorrido, seguridad del destino, push (delivery/worker/subscripción), `student-admin`, `student-profile`, `driver-card`, ETA, invitaciones. **≈ En corridas recientes la suite pasó en verde (~162 casos en `develop`).** Nota: hay sensibilidad a la **concurrencia de PGlite** — si se inicializan varios entornos en paralelo, algún archivo (p.ej. `trip-target-security.test.ts`) puede fallar en el *init* sin ejecutar casos; correr **en secuencial** da verde. Recomendado `npx vitest run` para la cifra exacta.
+
+- **Modelo de invitación y su caveat de privacidad (✔, importante):**
+  - `/i/<token>` es un **bearer token** (el `id` de la fila `invites`): **quien tiene el link** puede canjear (así se diseñó para WhatsApp). `redeem_invite` fija el alumno por el **token**; en `develop` el campo **nombre no se valida** (es solo la etiqueta del apoderado). La **dirección NO la devuelve el RPC**: la web la obtiene de `route_stops` filtrado por `student_id` (`apps/web-apoderado/src/trip-data.ts`), autorizado por la RLS `route_stops_guardian_select` → `is_guardian_of_student`.
+  - **Riesgo real:** la web usa **un único usuario anónimo persistente por navegador**. Cada canje hace `insert into guardians … on conflict (user_id) do update` + acumula filas en `student_guardians`, de modo que ese identity queda **ligado a todos los alumnos** cuyos links se abrieron en ese dispositivo. La RLS entonces (correctamente) lo autoriza a leer a todos, y rutas de la UI pueden pintar al alumno equivocado: `renderEtaView(stored[0])` (fallback de caché), la ruta `?student=<id>` (push), y los **markers de Leaflet globales de módulo** (`stopMarker`/`schoolMarker`) que se crean una vez y no se resetean al cambiar de alumno.
+  - **En revisión (PR #17):** `0016_guardian_invite_identity.sql` agrega *name-matching* (el nombre tecleado debe coincidir con `student_profiles.guardian_name`). **No corresponde al síntoma** (el cruce no pasa por el nombre) e introduce regresiones: `guardian_name` es **opcional** (alumnos sin él → invitación inutilizable) y el match **no normaliza acentos** (bloquea apoderados legítimos). Recomendación de la revisión: tratarlo en un **PR aparte**; el fix real es garantizar identidad por invitación + que la UI pinte siempre el alumno del token (resetear estado/markers al cambiar de alumno). El token como *bearer* sugiere, además, barreras tipo **un solo uso / caducidad corta** antes que el nombre.
+
+- **Otros caveats conocidos:**
+  - **≈ Estado del push y migraciones en Supabase remoto no confirmado.** Según la última verificación del usuario, la base remota tenía aplicadas hasta `0014`; **`0015` queda pendiente** de `supabase db push`. Sin aplicar, la tarjeta de conductor falla en vivo.
   - **Foto del conductor**: solo URL, sin subida real (Storage) ni políticas de bucket.
   - **Doble fuente de dirección/coordenadas**: `route_stops` (operación) y `student_profiles` (0014, contacto administrativo) — conviene definir cuál es la fuente maestra.
   - **Entrega push "al menos una vez"** (puede repetir); el ETA es acotado al **destino elegido**, no a toda la ruta.
@@ -117,19 +123,22 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 ## 9. Riesgos técnicos y próximos pasos recomendados
 
 **Riesgos:**
-- **Dos agentes en paralelo** (Claude y Codex) sobre los mismos archivos de la app → riesgo de conflictos. Mitigación actual: Codex implementa el rediseño del conductor (etapas 1–3); Claude revisa/coordina.
+- **Privacidad de invitaciones** (ver §8): un dispositivo puede quedar ligado a varios alumnos y la UI mostrar al equivocado. Es el riesgo más sensible por la "regla de oro". Pendiente de fix real (no name-matching).
+- **Dos agentes en paralelo** (Claude y Codex) sobre los mismos archivos de la app → riesgo de conflictos. Mitigación actual: Codex implementa el rediseño del conductor; Claude revisa/coordina (PR #17).
 - **Mapa en el conductor** exige una **dependencia nativa** (`react-native-maps`) o Leaflet en WebView → afecta el build y la prueba física.
 - **Push en iPhone sin probar** en dispositivo real → riesgo de fiabilidad del canal principal de avisos.
-- **Rediseño navy**: la identidad en `develop` hoy es **negro cálido + amarillo**; la maqueta propone **navy + amarillo**. Cambiar el token oscuro reabre la identidad.
-- **Ida/Vuelta vs AM/PM**: la base usa el enum `route_kind` **AM/PM**; el cambio a "Ida/Vuelta" debe ser **solo de etiqueta**, sin tocar migraciones ni contratos.
+- **Rediseño navy**: la identidad en `develop` hoy es **negro cálido + amarillo**; el PR #17 propone **navy + amarillo**. Al mergear, la web del apoderado queda desalineada (sigue en negro cálido) hasta un cambio aparte.
+- **Ida/Vuelta vs AM/PM**: la base usa el enum `route_kind` **AM/PM**; el cambio a "Ida/Vuelta" es **solo de etiqueta**, sin tocar migraciones ni contratos (✔ así está en el PR #17).
 
 **Próximos pasos recomendados:**
-1. Aplicar `0015` en Supabase (`supabase db push`) y confirmar con `supabase migration list`.
-2. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
-3. Rediseño del conductor por etapas: identidad navy → cabecera/menú lateral → pantallas (alumnos/invitar/perfil/detalle) → mapa nativo → cámara/foto en Storage.
-4. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
-5. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
+1. **Invitaciones**: arreglar la fuga real en un PR propio (identidad por invitación + UI que pinte siempre el alumno del token + reset de markers); evaluar link de un solo uso / caducidad. Sacar `0016` (name-matching) del PR #17.
+2. Aplicar `0015` en Supabase (`supabase db push`) y confirmar con `supabase migration list`.
+3. Cerrar el PR #17: arreglar `home.tsx` (header fijo fuera del `ScrollView`), traer `develop` a la rama, prueba visual en iPhone, y mergear.
+4. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
+5. Etapas 4–5 del conductor: mapa nativo y cámara/foto a Storage; luego alinear la web del apoderado al navy.
+6. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
+7. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
 
 ---
 
-*Documento generado por **Claude** (asistente de Anthropic, vía Claude Code) como análisis de solo lectura de `develop`. ✔ Verificado = leído en el repositorio; ≈ Inferido = deducido por contexto o convención. Sin secretos ni datos personales. Fecha de análisis: 2026-10-24.*
+*Documento generado por **Claude** (asistente de Anthropic, vía Claude Code) como análisis de solo lectura de `develop`. ✔ Verificado = leído en el repositorio; ≈ Inferido = deducido por contexto o convención. Sin secretos ni datos personales. Fecha de análisis: 2026-10-26.*
