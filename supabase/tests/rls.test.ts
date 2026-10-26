@@ -172,3 +172,35 @@ describe('absences: sólo el propio apoderado', () => {
     expect(rows.rows).toHaveLength(1);
   });
 });
+
+describe('trip_vehicle_location: última ubicación, fresca y protegida', () => {
+  it('el apoderado ve la ubicación fresca de su recorrido, pero no una ubicación vieja congelada', async () => {
+    const trip = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ trip_id: string }>(`select public.driver_start_trip($1)->>'tripId' as trip_id`, [s.routeAId])
+    );
+    const tripId = trip.rows[0].trip_id;
+
+    await t.db.query(
+      `insert into public.trip_vehicle_location (trip_id, lat, lng, updated_at)
+       values ($1, -33.5, -70.7, now())`,
+      [tripId]
+    );
+
+    const fresh = await t.as(s.martinaMom.userId, (db) =>
+      db.query(`select lat, lng from public.trip_vehicle_location where trip_id = $1`, [tripId])
+    );
+    expect(fresh.rows).toHaveLength(1);
+
+    await t.db.query(
+      `update public.trip_vehicle_location
+       set updated_at = now() - interval '3 minutes'
+       where trip_id = $1`,
+      [tripId]
+    );
+
+    const stale = await t.as(s.martinaMom.userId, (db) =>
+      db.query(`select lat, lng from public.trip_vehicle_location where trip_id = $1`, [tripId])
+    );
+    expect(stale.rows).toHaveLength(0);
+  });
+});

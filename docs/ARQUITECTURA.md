@@ -28,11 +28,12 @@ decisiones que no son obvias del SQL:
   tener una dirección AM y otra PM (dos padres, por ejemplo), así que la
   parada vive en `route_stops`, no en `students`. Cada mañana, `start_trip`
   crea (o retoma) la fila de `trips` de ese día.
-- **La posición GPS nunca se persiste.** No existe una tabla `positions` ni
-  similar. El teléfono del conductor manda su posición a la Edge Function
-  `update-eta`, que la usa una sola vez (para pedirle la ruta a Mapbox) y la
-  descarta. Lo único que queda en la base es `trip_stop_eta`: segundos
-  restantes por alumno, nunca coordenadas.
+- **La posición GPS se persiste sólo como última ubicación del recorrido
+  activo.** Para el MVP “tipo Uber”, `0008_vehicle_location.sql` agrega
+  `trip_vehicle_location`: una fila por `trip`, sin historial. La Edge
+  Function `update-eta` la sobreescribe con cada update, `finishTrip` la borra
+  al finalizar y RLS sólo la expone a apoderados de ese recorrido cuando está
+  fresca. El ETA por alumno sigue separado en `trip_stop_eta`.
 - **`trip_events` es la fuente de verdad de "qué pasó".** Iniciado, cerca,
   subió, no viaja, llegó, finalizado — todo es una fila en esta tabla. La
   línea de tiempo que ve el apoderado (pantallas 5/8) es una lectura
@@ -57,8 +58,9 @@ funciona. Puntos que vale la pena mirar directamente en el SQL:
 - `trip_events`: el apoderado ve los eventos generales del recorrido
   (`student_id is null`) más los de su propio hijo — nunca los de un
   hermano de furgón.
-- `trip_stop_eta`: la única tabla con "dónde está el furgón" (como
-  segundos, nunca coordenadas), con la misma regla de una fila por hijo.
+- `trip_stop_eta`: ETA por alumno, con la misma regla de una fila por hijo.
+- `trip_vehicle_location`: última coordenada del furgón para mostrar el mapa
+  en vivo, sin historial, visible sólo mientras está fresca.
 
 Truco de implementación: la política de `routes` no puede reutilizar la
 función `is_my_route()` para su propio `INSERT` — un `WITH CHECK` no puede
@@ -107,34 +109,9 @@ lng }`.
    `is_my_trip` con el JWT del caller antes de usar la service role key.
    Leer `trips` no basta: RLS también permite esa lectura a los apoderados.
    Después verifica que el recorrido siga `in_progress`.
-2. Con la service role key (que sí bypassa RLS — a propósito: esta función
-   necesita ver todas las paradas restantes del recorrido, algo que RLS le
-   niega a un apoderado o a otro transportista), arma la lista de paradas
-   sin `picked_up`/`skipped`/`dropped_off` todavía.
-3. Le pide a la **Directions API de Mapbox** (perfil `driving-traffic`) la
-   ruta: conductor → parada 1 → parada 2 → …, EN EL ORDEN en que el
-   conductor ya las recorre (`route_stops.seq`). No usamos la Optimization
-   API — el orden lo decide el conductor, no un solver; es más simple y
-   más barato.
-4. Cada `leg` de la respuesta es un tramo; el ETA de la parada *i* es la
-   suma acumulada de los tramos `0..i`. `upsert` en `trip_stop_eta`.
-5. Si el ETA de la próxima parada cruza el umbral (6 minutos por defecto) y
-   ese alumno no tenía ya un evento `approaching`, inserta uno — es lo que,
-   en producción, un trigger convertiría en push "el furgón está cerca"
-   (ver §7).
-
-**Límite verificado de Mapbox:** la Directions API acepta hasta **25
-coordenadas** por request (conductor + 24 paradas), igual para
-`driving-traffic` que para `driving` — sin distinción por plan gratuito o
-de pago. El código lo valida explícitamente (`too_many_waypoints`) en vez
-de dejar que Mapbox devuelva un 422 críptico. Un furgón escolar real nunca
-debería acercarse a ese límite. ([Fuente: Mapbox Directions API
-docs](https://docs.mapbox.com/api/navigation/directions/))
-
-Toda la lógica de arriba que NO depende de la red (armar la URL, leer la
-respuesta, decidir a quién avisar) está separada en `eta-logic.ts` y
-testeada en `supabase/tests/eta-logic.test.ts` sin llamar a Mapbox de
-verdad.
+2. Lee el destino elegido y su revisión mediante `driver_get_target`. El estado vive en `trip_targets`, privado; `guardian_is_next` revela sólo si el alumno propio es el siguiente.
+3. Calcula ETA únicamente hacia esa parada. `persist_target_eta` vuelve a validar destino, revisión y estado bajo bloqueo del viaje antes de guardar ETA y evento `approaching` a 500 m o menos.
+4. La migración 0012 encola el push con la revisión del destino. El despachador valida nuevamente al reclamar y justo antes de enviar. No expone nombres, direcciones ni tokens de invitación al proveedor. Ver [PUSH.md](PUSH.md) para límites de entrega y reavisos.
 
 ## 6. Las dos apps
 
@@ -172,26 +149,17 @@ verdad.
   ya se canjeó en este navegador) es pura y está testeada. `src/app.ts` es
   el único archivo que toca el DOM/Supabase directamente, y por eso no
   tiene test propio — mismo patrón que `backgroundLocation.ts`.
-- El ETA se actualiza en vivo con **Supabase Realtime** (`postgres_changes`
-  sobre `trip_stop_eta` y `trip_events`, filtrado por `student_id`): RLS
-  aplica también a las suscripciones Realtime, así que aunque el cliente
-  se suscriba "a todo", sólo recibe cambios de las filas que puede leer.
+- El ETA y mapa se actualizan en vivo con **Supabase Realtime**
+  (`postgres_changes` sobre `trip_stop_eta`, `trip_events` y
+  `trip_vehicle_location`). `0009_backend_safety_realtime.sql` agrega esas
+  tablas a la publicación `supabase_realtime` para que el comportamiento sea
+  reproducible. RLS aplica también a las suscripciones Realtime, así que aunque
+  el cliente se suscriba "a todo", sólo recibe cambios de las filas que puede
+  leer.
 
 ## 7. Lo que NO se construyó en este MVP (a propósito)
 
-- **Web push de verdad (con la página cerrada).** Lo que hay hoy es
-  `Notification.requestPermission()` — funciona sólo mientras la pestaña
-  sigue abierta. Un push real, con la página cerrada, necesita: un Service
-  Worker registrado, claves VAPID, guardar la suscripción push
-  (`endpoint`/`p256dh`/`auth`) en una tabla nueva, y una función que la
-  dispare (lo más limpio: un *database webhook* de Supabase sobre
-  `trip_events`, que llame a otra Edge Function con la librería
-  `web-push`). Es la pieza que falta para que el aviso "furgón cerca"
-  llegue sin que el apoderado tenga la web abierta — y en iPhone, sólo
-  funciona si antes agregó la página a su pantalla de inicio (limitación
-  de iOS/Safari, no de este código). **Para el piloto, el respaldo
-  pragmático es WhatsApp/SMS transaccional** (vía Twilio o similar) en vez
-  de invertir en esta infraestructura antes de validar que alguien la usa.
+- **Web push:** ampliación autorizada el 2026-10-09, implementada con service worker, VAPID y cola en Supabase. Configuración, límites y prueba de recepción en [PUSH.md](PUSH.md). La activación remota y recepción se registran en el historial.
 - **Reenvío del "furgón cerca" por WhatsApp/SMS.** Mismo motivo: media
   antes de construir.
 - Pagos, chat, calificación del conductor, optimización de ruta, múltiples
@@ -229,3 +197,19 @@ Para aplicar estas correcciones en un entorno existente, ejecutar
 `supabase db push`, desplegar nuevamente `update-eta`, publicar el bundle
 web actualizado y distribuir una nueva compilación de la app del conductor.
 El GPS en segundo plano aún requiere validación en un dispositivo físico.
+
+
+### Confirmación y reintentos GPS (2026-10-14)
+
+El conductor solicita una captura al registrar el seguimiento y muestra recepción
+sólo tras `ok: true` de `update-eta`. La pantalla activa captura de nuevo aunque
+no haya movimiento, con espera de 30 segundos tras éxito y 15 segundos tras
+fallo, evaluada cada 15 segundos. Cada captura/petición tiene timeout de 15
+segundos. En segundo plano el siguiente intento depende de eventos nativos.
+La confirmación vence a los 120 segundos de la captura; no prueba entrega a
+los apoderados. Ver [QA_GPS_WEB_LOCAL.md](QA_GPS_WEB_LOCAL.md) para evidencia y
+validación física pendiente. No se conserva historial de coordenadas en el cliente.
+
+## Perfil administrativo del alumno (0014, pendiente de aplicar)
+
+`student_profiles` conserva dirección común y contacto (nombre/teléfono) incluso sin rutas. Sólo el transportista dueño puede leer o escribir bajo RLS; no se expone al apoderado ni crea enlaces `student_guardians`. La invitación continúa siendo el mecanismo de acceso. `carrier_save_student_profile` usa SECURITY INVOKER y una única transacción para nombre, contacto y asignaciones Ida/Regreso; si una parada está bloqueada, revierte el conjunto. Las coordenadas comunes se copian a ambas paradas seleccionadas.

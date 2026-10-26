@@ -70,6 +70,32 @@ export function buildTimeline(
   ];
 }
 
+export type BoardingStatus = 'waiting_pickup' | 'on_board' | 'arrived';
+
+/**
+ * Estado del alumno según lo que registró el conductor, para mostrarlo al
+ * apoderado mientras el furgón atiende otras paradas: "Esperando retiro"
+ * (ida, antes de subir), "A bordo" (en el furgón) o "Llegó" (ya bajó / no
+ * viajó). No depende del orden de las paradas.
+ */
+export function boardingStatus(
+  events: TripEventRow[],
+  studentId: string,
+  direction: RouteDirection
+): BoardingStatus {
+  const has = (kind: TripEventRow['kind']) => events.some((e) => e.kind === kind && e.student_id === studentId);
+  if (has('dropped_off') || has('skipped')) return 'arrived';
+  if (direction === 'to_school') return has('picked_up') ? 'on_board' : 'waiting_pickup';
+  // Vuelta: el alumno sube en el colegio, va a bordo hasta que baja.
+  return 'on_board';
+}
+
+export function boardingStatusLabel(status: BoardingStatus, direction: RouteDirection): string {
+  if (status === 'on_board') return 'A bordo';
+  if (status === 'waiting_pickup') return 'Esperando retiro';
+  return direction === 'to_school' ? 'Llegó al colegio' : 'Llegó a casa';
+}
+
 function timeOf(event: TripEventRow | undefined): string | null {
   if (!event) return null;
   const d = new Date(event.created_at);
@@ -117,4 +143,28 @@ export function connectionState(params: {
   const age = nowMs - new Date(lastEtaUpdatedAt).getTime();
   return age > staleAfterMs ? 'stale' : 'live';
 }
+
+/**
+ * ¿El seguimiento está "sin señal"? Es decir: el furgón va hacia este alumno,
+ * pero ni el ETA ni la ubicación del furgón se actualizaron hace poco. Sirve
+ * para mostrar un estado honesto ("sin señal") en vez de un ETA viejo o un
+ * furgón inmóvil. Nota de privacidad: la RLS oculta la ubicación del furgón
+ * cuando no es fresca, así que aquí basta con que ninguno de los dos timestamps
+ * sea reciente. Devuelve true también cuando todavía no llegó ningún dato.
+ */
+export function isTrackingStale(params: {
+  etaUpdatedAt: string | null;
+  vehicleUpdatedAt: string | null;
+  nowMs: number;
+  staleAfterMs?: number;
+}): boolean {
+  const { etaUpdatedAt, vehicleUpdatedAt, nowMs, staleAfterMs = 120_000 } = params;
+  const isFresh = (iso: string | null): boolean => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return Number.isFinite(t) && nowMs - t <= staleAfterMs;
+  };
+  return !(isFresh(etaUpdatedAt) || isFresh(vehicleUpdatedAt));
+}
+
 import type { RouteDirection } from '../../../shared/rutasegura-api';

@@ -1,0 +1,5 @@
+project_id = "furgon-mvp"
+
+[functions.send-push]
+# Endpoint de servidor autenticado con PUSH_DISPATCH_SECRET, no un JWT de usuario.
+verify_jwt = false

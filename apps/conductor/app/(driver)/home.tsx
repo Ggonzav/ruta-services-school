@@ -1,10 +1,12 @@
 import { tripClock } from '../../../../shared/trip-clock';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchTodayRoute, startTrip, type TodayRoute } from '@/lib/tripApi';
 import { startSharingLocation } from '@/lib/backgroundLocation';
-import { colors } from '@/lib/theme';
+import { colors, typography } from '@/lib/theme';
+import { Avatar, Button, Card, ErrorText, Loading, Screen, Segment } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // Pantalla 1 del prototipo visual: "Iniciar recorrido". AM/PM se elige acá
 // (por defecto AM antes de las 13:00, PM después) — el MVP no soporta más
@@ -90,175 +92,111 @@ export default function HomeScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  if (loading) return <Loading />;
 
   if (loadError) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, padding: 24, paddingTop: 64, gap: 16 }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>No pudimos cargar la ruta</Text>
-        <Text style={{ fontSize: 16, color: colors.textMuted }}>{loadError}</Text>
-        <Pressable
-          onPress={load}
-          style={{
-            height: 52,
-            borderRadius: 14,
-            backgroundColor: colors.accent,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 17, fontWeight: '700' }}>Reintentar</Text>
-        </Pressable>
-      </View>
+      <Screen style={{ paddingTop: 64, gap: 16 }}>
+        <DriverHeader />
+        <Text style={typography.h2}>No pudimos cargar la ruta</Text>
+        <Text style={typography.muted}>{loadError}</Text>
+        <Button title="Reintentar" onPress={load} />
+      </Screen>
     );
   }
 
   if (!route) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, padding: 24, paddingTop: 64 }}>
-        <Text style={{ fontSize: 17, color: colors.textMuted }}>
-          No tienes una ruta {kind} configurada todavía. Pide al equipo que te la cree.
+      <Screen style={{ paddingTop: 64 }}>
+        <DriverHeader />
+        <Text style={typography.muted}>
+          No tienes una ruta de {kind === 'AM' ? 'ida' : 'vuelta'} configurada todavía. Pide al equipo que te la cree.
         </Text>
-      </View>
+      </Screen>
     );
   }
 
   const isToSchool = route.direction === 'to_school';
-  const routeDirectionLabel = isToSchool ? 'Casa → Colegio' : 'Colegio → Casa';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 56, paddingHorizontal: 20, gap: 18 }}>
+    <Screen style={{ gap: 0 }}>
+      <DriverHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: 16, paddingTop: 16, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
       <View>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textMuted }}>
-          🚌 RutaSegura
-        </Text>
-        <Text style={{ fontSize: 34, fontWeight: '800', color: colors.text }}>Mis rutas</Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted }}>{route.vehicleNickname}</Text>
+        <Text style={[typography.display, { fontSize: 30 }]}>Mis rutas</Text>
+        <Text style={typography.small}>{route.vehicleNickname}</Text>
       </View>
 
-      <View style={{ flexDirection: 'row', backgroundColor: colors.chipBg, borderRadius: 14, padding: 4 }}>
-        {(['AM', 'PM'] as const).map((k) => (
-          <Pressable
-            key={k}
-            onPress={() => setKind(k)}
-            style={{
-              flexGrow: 1,
-              height: 44,
-              borderRadius: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: kind === k ? '#2684FF' : 'transparent',
-            }}
-          >
-            <Text style={{ color: kind === k ? '#FFFFFF' : colors.text, fontWeight: '600' }}>
-              {k === 'AM' ? 'Mañana' : 'Tarde'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <Segment
+        value={kind}
+        onChange={setKind}
+        options={[
+          { value: 'AM', label: 'Ida', detail: 'Casa → Colegio' },
+          { value: 'PM', label: 'Vuelta', detail: 'Colegio → Casa' },
+        ]}
+      />
 
-      <View
-        style={{
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.cardBorder,
-          borderRadius: 18,
-          padding: 18,
-          flexShrink: 1,
-          shadowColor: '#0B2A55',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 8 },
-        }}
-      >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>{route.name}</Text>
-            <Text style={{ fontSize: 14, color: '#2684FF', fontWeight: '800' }}>{routeDirectionLabel}</Text>
-            <Text style={{ fontSize: 15, color: colors.textMuted }}>
-              {route.stops.length} alumnos · {route.stops.length} paradas
-            </Text>
-          </View>
-          <View style={{ backgroundColor: colors.successBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
-            <Text style={{ fontSize: 13, color: colors.success, fontWeight: '800' }}>Lista</Text>
-          </View>
-        </View>
-        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 8 }}>Horario {route.departureTime}</Text>
-        <FlatList
-          data={route.stops}
-          keyExtractor={(s) => s.studentId}
-          renderItem={({ item, index }) => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 44 }}>
-              <View
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 13,
-                  backgroundColor: '#2684FF',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>{index + 1}</Text>
-              </View>
-              <View>
-                <Text style={{ fontSize: 16, fontWeight: '600' }}>{item.fullName}</Text>
-                <Text style={{ fontSize: 14, color: colors.textMuted }}>{item.address}</Text>
-              </View>
-            </View>
-          )}
-        />
-      </View>
-
-      {permissionError && <Text style={{ color: colors.danger, fontSize: 14 }}>{permissionError}</Text>}
-
-      <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>
-        Tu ubicación se comparte solo con los apoderados de esta ruta, y solo mientras el recorrido esté
-        activo.
-      </Text>
-
-      <Pressable
+      <Button
+        title={isToSchool ? '▶  Iniciar ida' : '▶  Iniciar vuelta'}
+        variant="success"
         onPress={handleStart}
-        disabled={starting || route.stops.length === 0}
-        style={{
-          height: 64,
-          borderRadius: 18,
-          backgroundColor: colors.success,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: starting ? 0.6 : 1,
-          marginBottom: 12,
-        }}
-      >
-        {starting ? (
-          <ActivityIndicator />
-        ) : (
-          <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800' }}>
-            {isToSchool ? 'Iniciar ida' : 'Iniciar vuelta'}
-          </Text>
-        )}
-      </Pressable>
-      <Pressable
-        onPress={() => router.push('/(driver)/compartir')}
-        style={{
-          height: 52,
-          borderRadius: 16,
-          borderWidth: 2,
-          borderColor: colors.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 12,
-        }}
-      >
-        <Text style={{ color: colors.accent, fontSize: 17, fontWeight: '800' }}>Invitar apoderados</Text>
-      </Pressable>
-    </View>
+        loading={starting}
+        disabled={route.stops.length === 0}
+      />
+
+      <Card style={{ gap: 16 }}>
+        <View>
+          <Text style={typography.title}>Alumnos en esta ruta</Text>
+        </View>
+        <View>
+            {route.stops.map((item, index) => (
+              <View key={item.studentId}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                  <Avatar name={item.fullName} size={48} />
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: colors.text }}>{item.fullName}</Text>
+                </View>
+                {index < route.stops.length - 1 ? <View style={{ height: 1, backgroundColor: colors.cardBorder }} /> : null}
+              </View>
+            ))}
+        </View>
+      </Card>
+
+      {permissionError && <ErrorText>{permissionError}</ErrorText>}
+
+      <HomeLink icon="♙" label="Mis alumnos" onPress={() => router.push('/(driver)/alumnos')} />
+      <HomeLink icon="♙+" label="Invitar apoderados" onPress={() => router.push('/(driver)/compartir')} />
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function HomeLink({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 76,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.cardBorder,
+        backgroundColor: colors.card,
+        opacity: pressed ? 0.82 : 1,
+      })}
+    >
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.chipBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.navy, fontWeight: '900', fontSize: 17 }}>{icon}</Text>
+      </View>
+      <Text style={{ flex: 1, color: colors.navy, fontWeight: '800', fontSize: 17 }}>{label}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 26 }}>›</Text>
+    </Pressable>
   );
 }
 

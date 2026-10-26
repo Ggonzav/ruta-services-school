@@ -146,9 +146,10 @@ create table public.absences (
 );
 
 -- ---------------------------------------------------------------------------
--- ETA en vivo — la ÚNICA tabla que expone "dónde está el furgón", y sólo
--- como minutos restantes hacia la parada de CADA alumno (nunca coordenadas).
--- La escribe la Edge Function update-eta; los apoderados sólo leen su fila.
+-- ETA en vivo. Para privacidad, cada apoderado lee sólo el ETA de su hijo.
+-- La ubicación GPS exacta no vive aquí; el MVP+ tipo Uber agrega
+-- trip_vehicle_location en 0008, con sólo la última coordenada del recorrido
+-- activo, sin historial y protegida por RLS.
 -- ---------------------------------------------------------------------------
 
 create table public.trip_stop_eta (

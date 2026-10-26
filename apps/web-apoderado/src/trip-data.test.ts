@@ -77,6 +77,15 @@ it('does not mix past trips, turns or siblings into the current view', async () 
   expect(snapshot.events).toHaveLength(1);
   expect(buildTimeline(snapshot.events, 'child', 'Child').map(s => s.done)).toEqual([true, false, false, false]);
 });
+
+it('prefers the real active trip over the AM/PM suggested by the clock', async () => {
+  const afternoon = new Date('2026-09-20T18:03:00Z');
+  const snapshot = await fetchTripSnapshot(clientFor(), 'child', afternoon);
+  expect(snapshot.tripId).toBe('today');
+  expect(snapshot.direction).toBe('to_school');
+  expect(buildTimeline(snapshot.events, 'child', 'Child', snapshot.direction).map(s => s.label)).toContain('Child llegó al colegio');
+});
+
 it('hides old ETA when the selected trip is finished', async () => {
   const snapshot = await fetchTripSnapshot(clientFor('finished'), 'child', morning);
   expect(snapshot.status).toBe('finished');

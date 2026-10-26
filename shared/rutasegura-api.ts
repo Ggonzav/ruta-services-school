@@ -5,6 +5,10 @@ export function directionForKind(kind: RouteKind): RouteDirection {
   return kind === 'AM' ? 'to_school' : 'to_home';
 }
 
+export function kindForDirection(direction: RouteDirection): RouteKind {
+  return direction === 'to_school' ? 'AM' : 'PM';
+}
+
 export function isToSchool(direction: RouteDirection): boolean {
   return direction === 'to_school';
 }
