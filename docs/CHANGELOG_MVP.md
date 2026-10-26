@@ -2,6 +2,12 @@
 
 Registrar cambios comprobables. No reconstruir entregas históricas sin evidencia.
 
+## 2026-10-26 — Inicio de Ida/Vuelta visible antes de la lista (en revisión)
+
+- En “Mis rutas”, el botón “Iniciar ida/vuelta” queda inmediatamente debajo del selector de sentido para que siga siendo fácil de encontrar con rutas de muchos alumnos.
+- La tarjeta inferior muestra la cantidad y la lista desplazable de alumnos; deja de mostrar nombres técnicos como “Prueba 2 · Regreso”.
+- Sin cambios en rutas, recorridos, RPC, RLS ni migraciones. QA del autor: 164/164 pruebas, TypeScript del conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
+
 ## 2026-10-04 — Marco de trabajo
 
 - Se define alcance, arquitectura de referencia, QA, seguridad y revisión de cambios.

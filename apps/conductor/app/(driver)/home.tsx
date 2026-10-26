@@ -117,7 +117,6 @@ export default function HomeScreen() {
   }
 
   const isToSchool = route.direction === 'to_school';
-  const routeDirectionLabel = isToSchool ? 'Casa → Colegio' : 'Colegio → Casa';
 
   return (
     <Screen style={{ gap: 0 }}>
@@ -141,11 +140,19 @@ export default function HomeScreen() {
         ]}
       />
 
+      <Button
+        title={isToSchool ? '▶  Iniciar ida' : '▶  Iniciar vuelta'}
+        variant="success"
+        onPress={handleStart}
+        loading={starting}
+        disabled={route.stops.length === 0}
+      />
+
       <Card style={{ gap: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flexShrink: 1, paddingRight: 10 }}>
-            <Text style={typography.title}>{route.name}</Text>
-            <Text style={[typography.small, { fontWeight: '700' }]}>{routeDirectionLabel}</Text>
+            <Text style={typography.title}>{route.stops.length} {route.stops.length === 1 ? 'alumno' : 'alumnos'}</Text>
+            <Text style={[typography.small, { fontWeight: '700' }]}>Alumnos de esta ruta</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.chipBg, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: colors.navy, fontSize: 14 }}>◷</Text>
@@ -164,13 +171,6 @@ export default function HomeScreen() {
               </View>
             ))}
         </View>
-        <Button
-          title={isToSchool ? '▶  Iniciar ida' : '▶  Iniciar vuelta'}
-          variant="success"
-          onPress={handleStart}
-          loading={starting}
-          disabled={route.stops.length === 0}
-        />
       </Card>
 
       {permissionError && <ErrorText>{permissionError}</ErrorText>}
