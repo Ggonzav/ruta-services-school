@@ -158,7 +158,6 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
                   <Avatar name={item.fullName} size={48} />
                   <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: colors.text }}>{item.fullName}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 24 }}>›</Text>
                 </View>
                 {index < route.stops.length - 1 ? <View style={{ height: 1, backgroundColor: colors.cardBorder }} /> : null}
               </View>

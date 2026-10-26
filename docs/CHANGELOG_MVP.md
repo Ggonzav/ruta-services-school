@@ -2,6 +2,11 @@
 
 Registrar cambios comprobables. No reconstruir entregas históricas sin evidencia.
 
+## 2026-10-26 — Lista de alumnos sin acciones falsas (en revisión)
+
+- “Mis rutas” elimina el chevron `>` de cada alumno porque la fila es informativa y no abre una pantalla.
+- Sin cambios funcionales, de datos, RPC, RLS ni migraciones. QA del autor: TypeScript del conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual.
+
 ## 2026-10-26 — Inicio de Ida/Vuelta visible antes de la lista (en revisión)
 
 - En “Mis rutas”, el botón “Iniciar ida/vuelta” queda inmediatamente debajo del selector de sentido para que siga siendo fácil de encontrar con rutas de muchos alumnos.
