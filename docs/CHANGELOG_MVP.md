@@ -110,12 +110,6 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Sin migraciones, cambios de RLS/RPC, mapa nativo, cámara, publicación ni cambios en la web del apoderado. La configuración local de `public/config.js` permanece fuera del alcance.
 - QA del autor: 162/162 tests, TypeScript conductor y export del bundle iOS aprobados. Prueba física y revisión independiente pendientes.
 - Reversión: revertir el commit de interfaz; no hay datos ni configuración remota que revertir.
-## 2026-10-25 — Texto de avisos de cercanía (en revisión)
-
-- Los avisos push usan lenguaje directo para el apoderado: en Ida, “El furgón está cerca de tu casa.”; en Vuelta, “El furgón está llegando a tu casa.”
-- No cambia el disparador, destino, privacidad ni contrato del envío. La activación remota y la recepción física siguen pendientes de validación.
-- Reversión: restaurar los textos anteriores en `send-push` y volver a desplegar la función.
-
 ## 2026-10-26 — PR #17 sincronizado con invitaciones single-use (en revisión)
 
 - Revertido el cambio obsoleto de name-matching y eliminada `0016_guardian_invite_identity.sql`; el único `0016` es `0016_single_use_invites.sql` proveniente de `develop`.
