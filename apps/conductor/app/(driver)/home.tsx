@@ -150,8 +150,7 @@ export default function HomeScreen() {
 
       <Card style={{ gap: 16 }}>
         <View>
-          <Text style={typography.title}>{route.stops.length} {route.stops.length === 1 ? 'alumno' : 'alumnos'}</Text>
-          <Text style={[typography.small, { fontWeight: '700' }]}>Alumnos de esta ruta</Text>
+          <Text style={typography.title}>Alumnos en esta ruta</Text>
         </View>
         <View>
             {route.stops.map((item, index) => (
