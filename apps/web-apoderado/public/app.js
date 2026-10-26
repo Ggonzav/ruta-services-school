@@ -20770,23 +20770,38 @@ function buildTimeline(events, studentId, studentFirstName, direction = "to_scho
   const droppedOff = find("dropped_off", true);
   const boardedIsSkip = boarded?.kind === "skipped";
   const arrived = boardedIsSkip ? void 0 : isToSchool ? find("finished", false) : find("finished", false) ?? droppedOff;
-  return [
+  const initialSteps = [
     { key: "started", label: "Recorrido iniciado", done: !!started, time: timeOf(started) },
     {
       key: "approaching",
-      label: isToSchool ? "Furg\xF3n cerca de tu casa" : "Tu hijo est\xE1 llegando a casa",
+      label: isToSchool ? "El furg\xF3n est\xE1 cerca de tu casa" : `${studentFirstName} est\xE1 llegando a casa`,
       done: !!approaching,
       time: timeOf(approaching)
-    },
+    }
+  ];
+  if (!isToSchool) {
+    const homeEvent = boardedIsSkip ? boarded : droppedOff;
+    return [
+      ...initialSteps,
+      {
+        key: "arrived",
+        label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : `${studentFirstName} lleg\xF3 a casa`,
+        done: !!homeEvent,
+        time: timeOf(homeEvent)
+      }
+    ];
+  }
+  return [
+    ...initialSteps,
     {
       key: "boarded",
-      label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : isToSchool ? `${studentFirstName} subi\xF3 al furg\xF3n` : `${studentFirstName} baj\xF3 del furg\xF3n`,
+      label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : `${studentFirstName} subi\xF3 al furg\xF3n`,
       done: !!boarded,
       time: timeOf(boarded)
     },
     {
       key: "arrived",
-      label: isToSchool ? `${studentFirstName} lleg\xF3 al colegio` : `${studentFirstName} lleg\xF3 a casa`,
+      label: `${studentFirstName} lleg\xF3 al colegio`,
       done: !!arrived,
       time: timeOf(arrived)
     }

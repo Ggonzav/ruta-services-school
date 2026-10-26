@@ -109,3 +109,10 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Sin cambios en el umbral de aviso: continúa en 500 metros. No cambia RLS, RPC, migraciones ni la persistencia de ubicación.
 - QA del autor: 166/166 pruebas, TypeScript web y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual con el furgón fuera de la ruta.
 - Reversión: revertir el helper y el ajuste de `paintMap`, regenerar `public/app.js` y volver a publicar la web.
+
+## 2026-10-26 — Línea de tiempo de Vuelta sin estados duplicados (en revisión)
+
+- En Vuelta, `dropped_off` se presenta una sola vez como “Llegó a casa”; se elimina la duplicación visual “Bajó del furgón” + “Llegó a casa”.
+- La secuencia queda: Recorrido iniciado → [Nombre] está llegando a casa → [Nombre] llegó a casa. “No viajó” también termina la secuencia en una única fila.
+- Ida conserva cuatro estados porque subir al furgón y llegar al colegio son eventos distintos.
+- Sin cambios de eventos, RPC, RLS o migraciones. QA del autor: 168/168 pruebas, TypeScript web y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual.
