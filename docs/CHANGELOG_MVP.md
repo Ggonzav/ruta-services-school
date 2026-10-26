@@ -118,3 +118,9 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - La web muestra mensajes específicos para nombre incorrecto y contacto aún no configurado.
 - QA del autor: 163/163 pruebas aprobadas, incluidos canje normalizado y rechazo sin crear acceso; TypeScript web/conductor, bundle web y `git diff --check` aprobados.
 - Requiere aplicar `0016_guardian_invite_identity.sql`; pendientes revisión independiente, prueba física y despliegue.
+
+## 2026-10-25 — Texto de avisos de cercanía (en revisión)
+
+- Los avisos push usan lenguaje directo para el apoderado: en Ida, “El furgón está cerca de tu casa.”; en Vuelta, “El furgón está llegando a tu casa.”
+- No cambia el disparador, destino, privacidad ni contrato del envío. La activación remota y la recepción física siguen pendientes de validación.
+- Reversión: restaurar los textos anteriores en `send-push` y volver a desplegar la función.

@@ -12,7 +12,7 @@ export function allowedEndpoint(endpoint: string): boolean {
 export function pushPayload(row: Delivery) {
   return JSON.stringify({
     title: 'RutaSegura',
-    body: row.kind === 'AM' ? 'El furgón está cerca del punto de recogida.' : 'El furgón está llegando al punto de entrega.',
+    body: row.kind === 'AM' ? 'El furgón está cerca de tu casa.' : 'El furgón está llegando a tu casa.',
     tag: `approaching:${row.event_id}`,
     url: `/?student=${encodeURIComponent(row.student_id)}`,
   });

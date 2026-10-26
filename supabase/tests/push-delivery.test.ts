@@ -3,8 +3,8 @@ import { allowedEndpoint, deliverBatch, pushPayload, type Delivery } from '../fu
 const row: Delivery = { delivery_id:'d',lease:'lease',endpoint:'https://web.push.apple.com/Q123',p256dh:'key',auth:'key',student_id:'student',event_id:'event',kind:'PM' };
 it('produces an anonymous AM/PM message and student-specific link',()=>{
   expect(JSON.parse(pushPayload(row))).toMatchObject({url:'/?student=student',tag:'approaching:event'});
-  expect(JSON.parse(pushPayload(row)).body).toContain('entrega');
-  expect(JSON.parse(pushPayload({...row,kind:'AM'})).body).toContain('recogida');
+  expect(JSON.parse(pushPayload(row)).body).toBe('El furgón está llegando a tu casa.');
+  expect(JSON.parse(pushPayload({...row,kind:'AM'})).body).toBe('El furgón está cerca de tu casa.');
 });
 it.each(['http://localhost','https://web.push.apple.com.evil.org/x','https://u:p@web.push.apple.com/x','https://web.push.apple.com:8080/x'])('rejects SSRF endpoint %s',url=>expect(allowedEndpoint(url)).toBe(false));
 it('records success, transient errors and invalid endpoints without sending to arbitrary hosts',async()=>{
