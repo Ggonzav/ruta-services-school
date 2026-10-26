@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { finishTrip, markStop, setTarget, getTarget } from '@/lib/tripApi';
 import { stopSharingLocation, refreshLocation, locationStatus } from '@/lib/backgroundLocation';
@@ -9,6 +10,7 @@ import { colors, radius, typography } from '@/lib/theme';
 import { directionForKind, type RouteDirection, type RouteKind } from '../../../../shared/rutasegura-api';
 import { Avatar, Badge, Button, Card, Eyebrow, Loading, Screen, Snackbar, Spacer } from '@/components/ui';
 import { DriverHeader } from '@/components/driver-shell';
+import { TripMap, type LatLng } from '@/components/trip-map';
 
 // El conductor elige a quién atiende ahora (en cualquier orden). Al tocar un
 // alumno, ese pasa a ser el "destino actual" del furgón (driver_set_target),
@@ -21,6 +23,8 @@ export default function TripScreen() {
   const [settled, setSettled] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<RouteDirection>('to_school');
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [school, setSchool] = useState<LatLng | null>(null);
+  const [me, setMe] = useState<LatLng | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -29,17 +33,21 @@ export default function TripScreen() {
   const load = useCallback(async () => {
     const { data: trip } = await supabase
       .from('trips')
-      .select('route_id, routes(kind)')
+      .select('route_id, routes(kind, school_lat, school_lng)')
       .eq('id', tripId)
       .single();
     if (!trip) return;
-    const routeKind = ((trip as any).routes?.kind ?? 'AM') as RouteKind;
+    const route = (trip as any).routes;
+    const routeKind = (route?.kind ?? 'AM') as RouteKind;
     setDirection(directionForKind(routeKind));
+    if (route?.school_lat != null && route?.school_lng != null) {
+      setSchool({ lat: route.school_lat, lng: route.school_lng });
+    }
     setTargetId(await getTarget(tripId));
 
     const { data: stopsRows } = await supabase
       .from('route_stops')
-      .select('student_id, seq, address, students(full_name)')
+      .select('student_id, seq, address, lat, lng, students(full_name)')
       .eq('route_id', trip.route_id)
       .order('seq', { ascending: true });
 
@@ -55,6 +63,8 @@ export default function TripScreen() {
         seq: r.seq,
         address: r.address,
         fullName: r.students?.full_name ?? '(sin nombre)',
+        lat: r.lat ?? undefined,
+        lng: r.lng ?? undefined,
       }))
     );
     setSettled(new Set((events ?? []).map((e) => e.student_id as string)));
@@ -85,6 +95,29 @@ export default function TripScreen() {
     return () => { clearInterval(timer); subscription.remove(); };
   }, [tripId]));
 
+  // Posición propia (furgón) para el mapa. Usa el permiso de ubicación que ya
+  // concedió el recorrido; si no está disponible, el mapa simplemente no
+  // muestra el furgón.
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    let sub: Location.LocationSubscription | null = null;
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const last = await Location.getLastKnownPositionAsync();
+        if (active && last) setMe({ lat: last.coords.latitude, lng: last.coords.longitude });
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 10_000 },
+          (loc) => setMe({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+        );
+      } catch {
+        /* sin ubicación propia: el mapa sigue mostrando parada y colegio */
+      }
+    })();
+    return () => { active = false; sub?.remove(); };
+  }, []));
+
   const isToSchool = direction === 'to_school';
   const progress = tripProgress(stops, settled);
   const currentStep = progress.total > 0 ? Math.min(progress.done + 1, progress.total) : 0;
@@ -92,6 +125,11 @@ export default function TripScreen() {
   const pending = stops.filter((s) => !settled.has(s.studentId)).sort((a, b) => a.seq - b.seq);
   const current = targetId ? pending.find((s) => s.studentId === targetId) ?? null : null;
   const others = pending.filter((s) => s.studentId !== current?.studentId);
+
+  const hasCoords = (s: Stop): s is Stop & { lat: number; lng: number } => s.lat != null && s.lng != null;
+  const targetLatLng =
+    current && hasCoords(current) ? { lat: current.lat, lng: current.lng, label: current.fullName } : null;
+  const otherPins: LatLng[] = others.filter(hasCoords).map((s) => ({ lat: s.lat, lng: s.lng }));
 
   function showToast(message: string) {
     setToast(message);
@@ -173,6 +211,8 @@ export default function TripScreen() {
           <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700' }}>Estudiantes</Text>
         </View>
       </View>
+
+      <TripMap me={me} target={targetLatLng} school={school} others={otherPins} />
 
       {current ? (
         <>
