@@ -199,28 +199,37 @@ export interface StudentAdmin {
   assignments: StudentAssignment[];
   hasGuardian: boolean;
   hasContact: boolean;
+  address: string;
+  guardianName: string;
+  guardianPhone: string;
 }
 
 /** Todos los alumnos del transportista, con su asignación a rutas e info de apoderado. */
 export async function listStudents(): Promise<StudentAdmin[]> {
   const { data, error } = await supabase
     .from('students')
-    .select('id, full_name, route_stops(route_id, address, routes(kind)), student_guardians(guardian_id), student_profiles(guardian_name)')
+    .select('id, full_name, route_stops(route_id, address, routes(kind)), student_guardians(guardian_id), student_profiles(address, guardian_name, guardian_phone)')
     .order('full_name', { ascending: true });
   if (error) throw error;
 
-  return (data ?? []).map((s: any) => ({
-    id: s.id,
-    fullName: s.full_name,
-    assignments: (s.route_stops ?? []).map((rs: any) => ({
+  return (data ?? []).map((s: any) => {
+    const rawProfile = Array.isArray(s.student_profiles) ? s.student_profiles[0] : s.student_profiles;
+    return {
+      id: s.id,
+      fullName: s.full_name,
+      assignments: (s.route_stops ?? []).map((rs: any) => ({
       routeId: rs.route_id,
       // routes puede venir como objeto (to-one) o, defensivamente, como arreglo.
       kind: (Array.isArray(rs.routes) ? rs.routes[0]?.kind : rs.routes?.kind) as RouteKind,
       address: rs.address,
     })),
-    hasContact: Array.isArray(s.student_profiles) ? s.student_profiles.length > 0 : !!s.student_profiles,
-    hasGuardian: (s.student_guardians ?? []).length > 0,
-  }));
+      hasContact: !!rawProfile,
+      hasGuardian: (s.student_guardians ?? []).length > 0,
+      address: rawProfile?.address ?? s.route_stops?.[0]?.address ?? '',
+      guardianName: rawProfile?.guardian_name ?? '',
+      guardianPhone: rawProfile?.guardian_phone ?? '',
+    };
+  });
 }
 
 /** La ruta del transportista para ese turno (AM/PM), o null si no la tiene. */
@@ -238,8 +247,13 @@ export async function fetchCarrierRouteIdByKind(kind: RouteKind): Promise<string
 
 /** ¿Hay algún recorrido en curso del transportista? (para bloquear edición). */
 export async function hasActiveTrip(): Promise<boolean> {
-  const { data } = await supabase.from('trips').select('id').eq('status', 'in_progress').limit(1);
-  return (data ?? []).length > 0;
+  return !!await fetchActiveTripId();
+}
+
+/** Id del recorrido propio en curso, para el acceso rápido del menú. */
+export async function fetchActiveTripId(): Promise<string | null> {
+  const { data } = await supabase.from('trips').select('id').eq('status', 'in_progress').limit(1).maybeSingle();
+  return data?.id ?? null;
 }
 
 export async function createStudent(fullName: string): Promise<string> {

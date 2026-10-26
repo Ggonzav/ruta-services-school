@@ -24,6 +24,11 @@ export function locationStatus(tripId: string, now = Date.now()) {
   return { confirmed: false, label: status.confirmedAt ? 'Ubicación sin actualizar' : 'Esperando recepción GPS' };
 }
 
+/** Recorrido persistido por el seguimiento GPS; permite volver desde el menú. */
+export async function getActiveTripId(): Promise<string | null> {
+  return AsyncStorage.getItem(ACTIVE_TRIP_KEY);
+}
+
 async function bounded<T>(promise: Promise<T>, onTimeout = () => {}): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   try {

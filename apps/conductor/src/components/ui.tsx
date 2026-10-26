@@ -143,7 +143,7 @@ export function Segment<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; detail?: string }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -157,14 +157,19 @@ export function Segment<T extends string>({
             onPress={() => onChange(o.value)}
             style={{
               flex: 1,
-              height: 44,
+              minHeight: o.detail ? 64 : 44,
               borderRadius: 10,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: active ? colors.blue : 'transparent',
+              backgroundColor: active ? colors.yellow : 'transparent',
             }}
           >
-            <Text style={{ color: active ? colors.white : colors.text, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
+            <Text style={{ color: active ? colors.text : colors.textMuted, fontWeight: '800', fontSize: 14 }}>{o.label}</Text>
+            {o.detail ? (
+              <Text style={{ color: active ? colors.text : colors.textMuted, fontWeight: '700', fontSize: 12, marginTop: 2 }}>
+                {o.detail}
+              </Text>
+            ) : null}
           </Pressable>
         );
       })}

@@ -5,6 +5,7 @@ import { finishTrip, type TripSummary } from '@/lib/tripApi';
 import { formatDuration } from '@/lib/tripLogic';
 import { colors, radius, typography } from '@/lib/theme';
 import { Button, Card, Loading, Screen, Spacer } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // Pantalla 3 del prototipo visual. finishTrip ya se llamó desde trip.tsx
 // (para cerrar el recorrido cuanto antes); acá sólo se relee el resumen
@@ -30,7 +31,8 @@ export default function SummaryScreen() {
   const arrivalLabel = isToSchool ? 'Todos llegaron al colegio' : 'Todos llegaron a casa';
 
   return (
-    <Screen style={{ paddingTop: 88, gap: 20 }}>
+    <Screen style={{ gap: 20 }}>
+      <DriverHeader />
       <View style={{ alignItems: 'center', gap: 14 }}>
         <View
           style={{

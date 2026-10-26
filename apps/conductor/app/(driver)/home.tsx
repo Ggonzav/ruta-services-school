@@ -1,11 +1,12 @@
 import { tripClock } from '../../../../shared/trip-clock';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchTodayRoute, startTrip, type TodayRoute } from '@/lib/tripApi';
 import { startSharingLocation } from '@/lib/backgroundLocation';
 import { colors, typography } from '@/lib/theme';
-import { Badge, Button, Card, ErrorText, Eyebrow, Loading, Screen, Segment, Spacer } from '@/components/ui';
+import { Avatar, Button, Card, ErrorText, Loading, Screen, Segment } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // Pantalla 1 del prototipo visual: "Iniciar recorrido". AM/PM se elige acá
 // (por defecto AM antes de las 13:00, PM después) — el MVP no soporta más
@@ -96,6 +97,7 @@ export default function HomeScreen() {
   if (loadError) {
     return (
       <Screen style={{ paddingTop: 64, gap: 16 }}>
+        <DriverHeader />
         <Text style={typography.h2}>No pudimos cargar la ruta</Text>
         <Text style={typography.muted}>{loadError}</Text>
         <Button title="Reintentar" onPress={load} />
@@ -106,21 +108,26 @@ export default function HomeScreen() {
   if (!route) {
     return (
       <Screen style={{ paddingTop: 64 }}>
+        <DriverHeader />
         <Text style={typography.muted}>
-          No tienes una ruta {kind} configurada todavía. Pide al equipo que te la cree.
+          No tienes una ruta de {kind === 'AM' ? 'ida' : 'vuelta'} configurada todavía. Pide al equipo que te la cree.
         </Text>
       </Screen>
     );
   }
 
   const isToSchool = route.direction === 'to_school';
-  const routeDirectionLabel = isToSchool ? 'Casa → Colegio' : 'Colegio → Casa';
 
   return (
-    <Screen>
+    <Screen style={{ gap: 0 }}>
+      <DriverHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: 16, paddingTop: 16, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
       <View>
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
-        <Text style={typography.display}>Mis rutas</Text>
+        <Text style={[typography.display, { fontSize: 30 }]}>Mis rutas</Text>
         <Text style={typography.small}>{route.vehicleNickname}</Text>
       </View>
 
@@ -128,84 +135,69 @@ export default function HomeScreen() {
         value={kind}
         onChange={setKind}
         options={[
-          { value: 'AM', label: 'Mañana' },
-          { value: 'PM', label: 'Tarde' },
+          { value: 'AM', label: 'Ida', detail: 'Casa → Colegio' },
+          { value: 'PM', label: 'Vuelta', detail: 'Colegio → Casa' },
         ]}
       />
 
-      <Card style={{ flexShrink: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <View style={{ flexShrink: 1, paddingRight: 10 }}>
-            <Text style={typography.title}>{route.name}</Text>
-            <Text style={{ fontSize: 12.5, color: colors.blue, fontWeight: '800', marginTop: 1 }}>{routeDirectionLabel}</Text>
-            <Text style={typography.small}>
-              {route.stops.length} alumnos · {route.stops.length} paradas
-            </Text>
-          </View>
-          <Badge label="Lista" />
-        </View>
-        <Text style={[typography.small, { marginBottom: 8 }]}>Horario {route.departureTime}</Text>
-        <ScrollView style={{ maxHeight: 220 }}>
-          <View style={{ gap: 9 }}>
-            {route.stops.map((item, index) => (
-              <View key={item.studentId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    backgroundColor: colors.blue,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ color: colors.white, fontSize: 13, fontWeight: '800' }}>{index + 1}</Text>
-                </View>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>{item.fullName}</Text>
-                  <Text style={typography.small}>{item.address}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </Card>
-
-      {permissionError && <ErrorText>{permissionError}</ErrorText>}
-
-      <Spacer />
-
-      <Text style={[typography.small, { textAlign: 'center' }]}>
-        Tu ubicación se comparte solo con los apoderados de esta ruta, y solo mientras el recorrido esté activo.
-      </Text>
-
       <Button
-        title={isToSchool ? 'Iniciar ida' : 'Iniciar vuelta'}
+        title={isToSchool ? '▶  Iniciar ida' : '▶  Iniciar vuelta'}
         variant="success"
         onPress={handleStart}
         loading={starting}
         disabled={route.stops.length === 0}
       />
-      <Button
-        title="Mis alumnos"
-        variant="ghost"
-        size="md"
-        onPress={() => router.push('/(driver)/alumnos')}
-      />
-      <Button
-        title="Invitar apoderados"
-        variant="ghost"
-        size="md"
-        onPress={() => router.push('/(driver)/compartir')}
-      />
-      <Button
-        title="Mi perfil"
-        variant="neutralGhost"
-        size="md"
-        onPress={() => router.push('/(driver)/perfil')}
-        style={{ marginBottom: 12 }}
-      />
+
+      <Card style={{ gap: 16 }}>
+        <View>
+          <Text style={typography.title}>Alumnos en esta ruta</Text>
+        </View>
+        <View>
+            {route.stops.map((item, index) => (
+              <View key={item.studentId}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                  <Avatar name={item.fullName} size={48} />
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: colors.text }}>{item.fullName}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 24 }}>›</Text>
+                </View>
+                {index < route.stops.length - 1 ? <View style={{ height: 1, backgroundColor: colors.cardBorder }} /> : null}
+              </View>
+            ))}
+        </View>
+      </Card>
+
+      {permissionError && <ErrorText>{permissionError}</ErrorText>}
+
+      <HomeLink icon="♙" label="Mis alumnos" onPress={() => router.push('/(driver)/alumnos')} />
+      <HomeLink icon="♙+" label="Invitar apoderados" onPress={() => router.push('/(driver)/compartir')} />
+      </ScrollView>
     </Screen>
+  );
+}
+
+function HomeLink({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 76,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.cardBorder,
+        backgroundColor: colors.card,
+        opacity: pressed ? 0.82 : 1,
+      })}
+    >
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.chipBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.navy, fontWeight: '900', fontSize: 17 }}>{icon}</Text>
+      </View>
+      <Text style={{ flex: 1, color: colors.navy, fontWeight: '800', fontSize: 17 }}>{label}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 26 }}>›</Text>
+    </Pressable>
   );
 }
 

@@ -2,6 +2,13 @@
 
 Registrar cambios comprobables. No reconstruir entregas históricas sin evidencia.
 
+## 2026-10-26 — Inicio de Ida/Vuelta visible antes de la lista (en revisión)
+
+- En “Mis rutas”, el botón “Iniciar ida/vuelta” queda inmediatamente debajo del selector de sentido para que siga siendo fácil de encontrar con rutas de muchos alumnos.
+- La tarjeta inferior muestra un único encabezado “Alumnos en esta ruta” y la lista desplazable; elimina el contador redundante y nombres técnicos como “Prueba 2 · Regreso”.
+- Se ocultan los horarios de demostración de la tarjeta; el horario configurado permanece en la ruta y no se modifica.
+- Sin cambios en rutas, recorridos, RPC, RLS ni migraciones. QA del autor: 164/164 pruebas, TypeScript del conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
+
 ## 2026-10-04 — Marco de trabajo
 
 - Se define alcance, arquitectura de referencia, QA, seguridad y revisión de cambios.
@@ -101,3 +108,20 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Revisión independiente `/root/push_target_integration_review`: 3/3 tests perfil aprobados, sin bloqueantes; resultado tardío de geocodificación corregido con versión de dirección (verificado por inspección, no test UI). TypeScript final y build web aprobados. Pendiente prueba iPhone y aplicación autorizada de0014.
 
 - Operación autorizada: aplicada `0014_student_profile.sql` a `jfjysvvrpjemcdkqutmw`. Dry-run incluyó únicamente 0014; db push completó correctamente. Sin seeds, reset, merge ni publicación web. Prueba del formulario en iPhone pendiente.
+
+## 2026-10-24 — App conductor: identidad y navegación (en revisión)
+
+- Rama `codex/conductor-ui-stages-1-3`: la app del conductor adopta cabecera navy con pin amarillo y furgón, y muestra Ida/Vuelta manteniendo AM/PM como contrato interno.
+- Se agrega un menú lateral propio, sin dependencias nuevas, con acceso a rutas, alumnos, invitaciones, perfil, ayuda, cierre de sesión y retorno al recorrido activo.
+- Mis alumnos incorpora dirección y contacto guardado, más una pantalla de detalle antes de editar o compartir la invitación. Invitaciones y perfil usan la misma cabecera y componentes visuales.
+- Sin migraciones, cambios de RLS/RPC, mapa nativo, cámara, publicación ni cambios en la web del apoderado. La configuración local de `public/config.js` permanece fuera del alcance.
+- QA del autor: 162/162 tests, TypeScript conductor y export del bundle iOS aprobados. Prueba física y revisión independiente pendientes.
+- Reversión: revertir el commit de interfaz; no hay datos ni configuración remota que revertir.
+## 2026-10-26 — PR #17 sincronizado con invitaciones single-use (en revisión)
+
+- Revertido el cambio obsoleto de name-matching; el único `0016` es `0016_single_use_invites.sql` proveniente de `develop`.
+- La web conserva el contrato de `develop`: el token fija al alumno, una invitación usada en otro dispositivo devuelve `invite_already_used` y no se valida el nombre ingresado.
+- El header de “Mis rutas” queda fuera del `ScrollView` para permanecer fijo. El bundle web se regeneró con esbuild sin regenerar `config.js`.
+- QA del autor: 164/164 pruebas, TypeScript web/conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
+- Operación autorizada: `migration list` confirmó `0015` aplicada; el dry-run incluyó únicamente `0016_single_use_invites.sql`, `db push` la aplicó y la verificación final mostró local/remoto alineados de `0001` a `0016`. Sin seeds ni reset.
+- Reversión: revertir este ajuste visual; la migración single-use pertenece a `develop` y no debe retirarse al revertir el PR visual.

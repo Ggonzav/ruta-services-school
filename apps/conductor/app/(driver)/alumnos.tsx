@@ -3,7 +3,8 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { hasActiveTrip, listStudents, type StudentAdmin } from '@/lib/tripApi';
 import { colors, radius, typography } from '@/lib/theme';
-import { Avatar, Button, Card, Eyebrow, Field, Loading, Screen } from '@/components/ui';
+import { Avatar, Button, Card, Field, Loading, Screen } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // "Mis alumnos": el transportista ve y administra sus alumnos. Agregar y
 // editar van a /(driver)/alumno. Durante un recorrido en curso los cambios
@@ -39,20 +40,9 @@ export default function AlumnosScreen() {
 
   return (
     <Screen>
+      <DriverHeader />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable
-          onPress={() => router.replace('/(driver)/home')}
-          style={{
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            borderRadius: radius.pill,
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.cardBorder,
-          }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>← Volver</Text>
-        </Pressable>
+        <Text style={typography.h2}>Mis alumnos</Text>
         <Button
           title="+ Agregar"
           size="md"
@@ -60,11 +50,6 @@ export default function AlumnosScreen() {
           disabled={active}
           style={{ paddingHorizontal: 18 }}
         />
-      </View>
-
-      <View>
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
-        <Text style={typography.h2}>Mis alumnos</Text>
       </View>
 
       {active && (
@@ -88,13 +73,14 @@ export default function AlumnosScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push({ pathname: '/(driver)/alumno', params: { id: item.id } })}
+            onPress={() => router.push({ pathname: '/(driver)/alumno-detalle', params: { id: item.id } })}
             style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
           >
             <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Avatar name={item.fullName} size={46} />
               <View style={{ flexShrink: 1, flexGrow: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{item.fullName}</Text>
+                {item.address ? <Text style={typography.small} numberOfLines={1}>{item.address}</Text> : null}
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                   {item.assignments.length === 0 ? (
                     <Text style={typography.small}>Sin ruta asignada</Text>
@@ -104,7 +90,7 @@ export default function AlumnosScreen() {
                         key={a.routeId}
                         style={{ backgroundColor: colors.chipBg, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 }}
                       >
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: colors.accent }}>{a.kind === 'AM' ? 'Ida' : 'Regreso'}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: colors.accent }}>{a.kind === 'AM' ? 'Ida' : 'Vuelta'}</Text>
                       </View>
                     ))
                   )}
@@ -112,6 +98,11 @@ export default function AlumnosScreen() {
                     {item.hasGuardian ? '· Acceso activado' : item.hasContact ? '· Contacto guardado · Invitar apoderado' : '· Completar datos del apoderado'}
                   </Text>
                 </View>
+                {item.guardianName ? (
+                  <Text style={[typography.small, { marginTop: 5 }]} numberOfLines={1}>
+                    {item.guardianName}{item.guardianPhone ? ` · ${item.guardianPhone}` : ''}
+                  </Text>
+                ) : null}
               </View>
               <Text style={{ fontSize: 22, color: colors.textMuted }}>›</Text>
             </Card>

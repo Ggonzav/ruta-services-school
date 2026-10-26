@@ -3,7 +3,8 @@ import { Alert, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { fetchCarrierProfile, saveCarrierProfile, signOut } from '@/lib/tripApi';
 import { colors, radius, typography } from '@/lib/theme';
-import { Avatar, Button, Card, ErrorText, Eyebrow, Field, Loading, Screen, Spacer } from '@/components/ui';
+import { Avatar, Button, Card, ErrorText, Field, Loading, Screen, Spacer } from '@/components/ui';
+import { DriverHeader } from '@/components/driver-shell';
 
 // Perfil del transportista: nombre, teléfono y foto que el apoderado verá como
 // "tarjeta del conductor" (vía guardian_trip_driver). Aquí también vive el
@@ -74,20 +75,11 @@ export default function PerfilScreen() {
 
   return (
     <Screen>
-      <Text
-        onPress={() => router.replace('/(driver)/home')}
-        style={{ fontSize: 16, fontWeight: '700', color: colors.text }}
-      >
-        ← Volver
-      </Text>
+      <DriverHeader />
 
       <View style={{ alignItems: 'center', gap: 8 }}>
         <Avatar name={fullName || 'Conductor'} size={72} />
-        <Eyebrow>🚌 RUTASEGURA</Eyebrow>
         <Text style={typography.h2}>Mi perfil</Text>
-        <Text style={[typography.small, { textAlign: 'center' }]}>
-          Esto es lo que verá el apoderado como conductor del furgón.
-        </Text>
       </View>
 
       <Field label="Nombre" placeholder="Nombre y apellido" value={fullName} onChangeText={setFullName} />

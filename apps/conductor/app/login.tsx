@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { colors, typography } from '@/lib/theme';
 import { Button, ErrorText, Field, Screen, Spacer } from '@/components/ui';
+import { BrandMark } from '@/components/driver-shell';
 
 // Login con email + contraseña. Para el piloto (5 transportistas) la
 // cuenta se la creamos nosotros a mano en el dashboard de Supabase — no
@@ -42,7 +43,7 @@ export default function LoginScreen() {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 38 }}>🚌</Text>
+          <BrandMark size={62} />
         </View>
         <Text style={[typography.display, { fontSize: 30 }]}>RutaSegura</Text>
         <Text style={{ fontSize: 14, color: colors.textMuted, fontWeight: '600' }}>Transporte Escolar</Text>
