@@ -45,13 +45,6 @@ describe('invitación por WhatsApp: redeem_invite', () => {
     );
     const token = invite.rows[0].id;
 
-    await t.db.query(
-      `insert into public.student_profiles
-         (student_id, address, lat, lng, guardian_name, guardian_phone)
-       values ($1, 'Dirección de Benjamín', -33.45, -70.67, 'Papá de Benjamín', '+56911111111')`,
-      [s.benjaminId]
-    );
-
     // Simula supabase.auth.signInAnonymously(): un user_id nuevo, sin fila
     // en guardians todavía.
     const anonUserId = crypto.randomUUID();
@@ -60,7 +53,7 @@ describe('invitación por WhatsApp: redeem_invite', () => {
     const redeemed = await t.as(anonUserId, (db) =>
       db.query<{ student_name: string; route_name: string }>(
         `select * from public.redeem_invite($1, $2)`,
-        [token, '  PAPÁ   DE BENJAMÍN  ']
+        [token, 'Papá de Benjamín (segundo teléfono)']
       )
     );
 
@@ -72,32 +65,6 @@ describe('invitación por WhatsApp: redeem_invite', () => {
     const stops = await t.as(anonUserId, (db) => db.query(`select student_id from public.route_stops`));
     expect(stops.rows).toHaveLength(1);
     expect((stops.rows[0] as any).student_id).toBe(s.benjaminId);
-  });
-
-  it('rechaza un nombre que no corresponde al apoderado del alumno sin conceder acceso', async () => {
-    const invite = await t.as(s.carrierA.userId, (db) =>
-      db.query<{ id: string }>(
-        `insert into public.invites (student_id, carrier_id) values ($1, $2) returning id`,
-        [s.martinaId, s.carrierA.carrierId]
-      )
-    );
-    await t.db.query(
-      `insert into public.student_profiles
-         (student_id, address, lat, lng, guardian_name, guardian_phone)
-       values ($1, 'Dirección de Martina', -33.46, -70.68, 'Mamá de Martina', '+56922222222')`,
-      [s.martinaId]
-    );
-    const anonUserId = crypto.randomUUID();
-    await t.db.query(`insert into auth.users (id, email) values ($1, null)`, [anonUserId]);
-
-    await expect(
-      t.as(anonUserId, (db) =>
-        db.query(`select * from public.redeem_invite($1, $2)`, [invite.rows[0].id, 'Papá de otro alumno'])
-      )
-    ).rejects.toThrow(/guardian_name_mismatch/);
-
-    const guardian = await t.db.query(`select id from public.guardians where user_id = $1`, [anonUserId]);
-    expect(guardian.rows).toHaveLength(0);
   });
 
   it('un token vencido no se puede canjear', async () => {

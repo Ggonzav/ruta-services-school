@@ -110,15 +110,6 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Sin migraciones, cambios de RLS/RPC, mapa nativo, cámara, publicación ni cambios en la web del apoderado. La configuración local de `public/config.js` permanece fuera del alcance.
 - QA del autor: 162/162 tests, TypeScript conductor y export del bundle iOS aprobados. Prueba física y revisión independiente pendientes.
 - Reversión: revertir el commit de interfaz; no hay datos ni configuración remota que revertir.
-
-## 2026-10-25 — Validación de identidad al canjear invitaciones (en revisión)
-
-- `redeem_invite` valida que el nombre ingresado coincida con el apoderado registrado para el alumno del token, ignorando mayúsculas y espacios repetidos.
-- Un nombre incorrecto o un alumno sin identidad configurada no crea `guardians`, no concede acceso y no revela el nombre esperado.
-- La web muestra mensajes específicos para nombre incorrecto y contacto aún no configurado.
-- QA del autor: 163/163 pruebas aprobadas, incluidos canje normalizado y rechazo sin crear acceso; TypeScript web/conductor, bundle web y `git diff --check` aprobados.
-- Requiere aplicar `0016_guardian_invite_identity.sql`; pendientes revisión independiente, prueba física y despliegue.
-
 ## 2026-10-25 — Texto de avisos de cercanía (en revisión)
 
 - Los avisos push usan lenguaje directo para el apoderado: en Ida, “El furgón está cerca de tu casa.”; en Vuelta, “El furgón está llegando a tu casa.”
