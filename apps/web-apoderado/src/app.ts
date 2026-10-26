@@ -146,7 +146,9 @@ async function handleInvite(token: string) {
       const message = err instanceof Error ? err.message : '';
       errorEl.textContent = message.includes('Anonymous sign-ins are disabled')
         ? 'Falta activar el login anónimo en Supabase para que el apoderado pueda abrir este link.'
-        : 'No pudimos validar la invitación. ¿El link sigue vigente?';
+        : message.includes('invite_already_used')
+          ? 'Este link de invitación ya se usó en otro teléfono. Pídele al transportista que te reenvíe una invitación nueva.'
+          : 'No pudimos validar la invitación. ¿El link sigue vigente?';
       errorEl.hidden = false;
       button.removeAttribute('disabled');
     }

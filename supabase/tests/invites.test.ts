@@ -100,4 +100,61 @@ describe('invitación por WhatsApp: redeem_invite', () => {
       )
     ).rejects.toThrow(/auth_required/);
   });
+
+  it('un solo uso: un segundo usuario no puede canjear un link ya usado', async () => {
+    const invite = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ id: string }>(
+        `insert into public.invites (student_id, carrier_id) values ($1, $2) returning id`,
+        [s.benjaminId, s.carrierA.carrierId]
+      )
+    );
+    const token = invite.rows[0].id;
+
+    // Primer apoderado canjea el link.
+    const first = crypto.randomUUID();
+    await t.db.query(`insert into auth.users (id, email) values ($1, null)`, [first]);
+    await t.as(first, (db) => db.query(`select * from public.redeem_invite($1, $2)`, [token, 'Mamá de Benjamín']));
+
+    // Un segundo usuario/dispositivo distinto intenta reusar el mismo link.
+    const second = crypto.randomUUID();
+    await t.db.query(`insert into auth.users (id, email) values ($1, null)`, [second]);
+    await expect(
+      t.as(second, (db) => db.query(`select * from public.redeem_invite($1, $2)`, [token, 'Otra persona']))
+    ).rejects.toThrow(/invite_already_used/);
+
+    // No se creó ningún vínculo para el segundo usuario → no ve ninguna parada.
+    const stops = await t.as(second, (db) => db.query(`select student_id from public.route_stops`));
+    expect(stops.rows).toHaveLength(0);
+  });
+
+  it('un solo uso: el MISMO usuario puede reabrir su propio link (idempotente)', async () => {
+    const invite = await t.as(s.carrierA.userId, (db) =>
+      db.query<{ id: string }>(
+        `insert into public.invites (student_id, carrier_id) values ($1, $2) returning id`,
+        [s.benjaminId, s.carrierA.carrierId]
+      )
+    );
+    const token = invite.rows[0].id;
+
+    const userId = crypto.randomUUID();
+    await t.db.query(`insert into auth.users (id, email) values ($1, null)`, [userId]);
+
+    const r1 = await t.as(userId, (db) =>
+      db.query<{ student_name: string }>(`select * from public.redeem_invite($1, $2)`, [token, 'Mamá de Benjamín'])
+    );
+    const r2 = await t.as(userId, (db) =>
+      db.query<{ student_name: string }>(`select * from public.redeem_invite($1, $2)`, [token, 'Mamá de Benjamín'])
+    );
+    expect(r1.rows[0].student_name).toBe('Benjamín T.');
+    expect(r2.rows[0].student_name).toBe('Benjamín T.');
+
+    // Sigue ligado a un solo alumno, sin duplicar vínculos.
+    const links = await t.db.query<{ n: string }>(
+      `select count(*)::text as n from public.student_guardians sg
+       join public.guardians g on g.id = sg.guardian_id
+       where g.user_id = $1`,
+      [userId]
+    );
+    expect(links.rows[0].n).toBe('1');
+  });
 });
