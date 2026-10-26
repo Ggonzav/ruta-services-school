@@ -6,6 +6,7 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 
 - En “Mis rutas”, el botón “Iniciar ida/vuelta” queda inmediatamente debajo del selector de sentido para que siga siendo fácil de encontrar con rutas de muchos alumnos.
 - La tarjeta inferior muestra la cantidad y la lista desplazable de alumnos; deja de mostrar nombres técnicos como “Prueba 2 · Regreso”.
+- Se ocultan los horarios de demostración de la tarjeta; el horario configurado permanece en la ruta y no se modifica.
 - Sin cambios en rutas, recorridos, RPC, RLS ni migraciones. QA del autor: 164/164 pruebas, TypeScript del conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
 
 ## 2026-10-04 — Marco de trabajo
