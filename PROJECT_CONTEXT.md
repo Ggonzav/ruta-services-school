@@ -112,7 +112,7 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 - **Modelo de invitación y su caveat de privacidad (✔, importante):**
   - `/i/<token>` es un **bearer token** (el `id` de la fila `invites`): **quien tiene el link** puede canjear (así se diseñó para WhatsApp). `redeem_invite` fija el alumno por el **token**; en `develop` el campo **nombre no se valida** (es solo la etiqueta del apoderado). La **dirección NO la devuelve el RPC**: la web la obtiene de `route_stops` filtrado por `student_id` (`apps/web-apoderado/src/trip-data.ts`), autorizado por la RLS `route_stops_guardian_select` → `is_guardian_of_student`.
   - **Riesgo real:** la web usa **un único usuario anónimo persistente por navegador**. Cada canje hace `insert into guardians … on conflict (user_id) do update` + acumula filas en `student_guardians`, de modo que ese identity queda **ligado a todos los alumnos** cuyos links se abrieron en ese dispositivo. La RLS entonces (correctamente) lo autoriza a leer a todos, y rutas de la UI pueden pintar al alumno equivocado: `renderEtaView(stored[0])` (fallback de caché), la ruta `?student=<id>` (push), y los **markers de Leaflet globales de módulo** (`stopMarker`/`schoolMarker`) que se crean una vez y no se resetean al cambiar de alumno.
-  - **En revisión (PR #17):** `0016_guardian_invite_identity.sql` agrega *name-matching* (el nombre tecleado debe coincidir con `student_profiles.guardian_name`). **No corresponde al síntoma** (el cruce no pasa por el nombre) e introduce regresiones: `guardian_name` es **opcional** (alumnos sin él → invitación inutilizable) y el match **no normaliza acentos** (bloquea apoderados legítimos). Recomendación de la revisión: tratarlo en un **PR aparte**; el fix real es garantizar identidad por invitación + que la UI pinte siempre el alumno del token (resetear estado/markers al cambiar de alumno). El token como *bearer* sugiere, además, barreras tipo **un solo uso / caducidad corta** antes que el nombre.
+  - **Resuelto en `develop` (#19):** `0016_single_use_invites.sql` hace que cada invitación sea de un solo uso para un apoderado, mantiene la reapertura idempotente en el mismo dispositivo y reduce la caducidad predeterminada a 30 días. El alumno lo fija el token; el nombre no se valida contra `student_profiles`.
 
 - **Otros caveats conocidos:**
   - **≈ Estado del push y migraciones en Supabase remoto no confirmado.** Según la última verificación del usuario, la base remota tenía aplicadas hasta `0014`; **`0015` queda pendiente** de `supabase db push`. Sin aplicar, la tarjeta de conductor falla en vivo.
@@ -123,7 +123,7 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 ## 9. Riesgos técnicos y próximos pasos recomendados
 
 **Riesgos:**
-- **Privacidad de invitaciones** (ver §8): un dispositivo puede quedar ligado a varios alumnos y la UI mostrar al equivocado. Es el riesgo más sensible por la "regla de oro". Pendiente de fix real (no name-matching).
+- **Privacidad de invitaciones** (ver §8): `0016_single_use_invites.sql` limita cada enlace a un apoderado y mantiene el alumno determinado por el token. La prueba física con dos invitaciones y dispositivos/sesiones independientes sigue pendiente.
 - **Dos agentes en paralelo** (Claude y Codex) sobre los mismos archivos de la app → riesgo de conflictos. Mitigación actual: Codex implementa el rediseño del conductor; Claude revisa/coordina (PR #17).
 - **Mapa en el conductor** exige una **dependencia nativa** (`react-native-maps`) o Leaflet en WebView → afecta el build y la prueba física.
 - **Push en iPhone sin probar** en dispositivo real → riesgo de fiabilidad del canal principal de avisos.
@@ -131,13 +131,12 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 - **Ida/Vuelta vs AM/PM**: la base usa el enum `route_kind` **AM/PM**; el cambio a "Ida/Vuelta" es **solo de etiqueta**, sin tocar migraciones ni contratos (✔ así está en el PR #17).
 
 **Próximos pasos recomendados:**
-1. **Invitaciones**: arreglar la fuga real en un PR propio (identidad por invitación + UI que pinte siempre el alumno del token + reset de markers); evaluar link de un solo uso / caducidad. Sacar `0016` (name-matching) del PR #17.
-2. Aplicar `0015` en Supabase (`supabase db push`) y confirmar con `supabase migration list`.
-3. Cerrar el PR #17: arreglar `home.tsx` (header fijo fuera del `ScrollView`), traer `develop` a la rama, prueba visual en iPhone, y mergear.
-4. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
-5. Etapas 4–5 del conductor: mapa nativo y cámara/foto a Storage; luego alinear la web del apoderado al navy.
-6. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
-7. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
+1. Aplicar `0015` y `0016_single_use_invites.sql` en Supabase (`supabase db push`) y confirmar con `supabase migration list`.
+2. Cerrar el PR #17: probar visualmente en iPhone y completar la revisión independiente.
+3. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
+4. Etapas 4–5 del conductor: mapa nativo y cámara/foto a Storage; luego alinear la web del apoderado al navy.
+5. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
+6. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
 
 ---
 

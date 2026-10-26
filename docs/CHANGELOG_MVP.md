@@ -115,3 +115,11 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - Los avisos push usan lenguaje directo para el apoderado: en Ida, “El furgón está cerca de tu casa.”; en Vuelta, “El furgón está llegando a tu casa.”
 - No cambia el disparador, destino, privacidad ni contrato del envío. La activación remota y la recepción física siguen pendientes de validación.
 - Reversión: restaurar los textos anteriores en `send-push` y volver a desplegar la función.
+
+## 2026-10-26 — PR #17 sincronizado con invitaciones single-use (en revisión)
+
+- Revertido el cambio obsoleto de name-matching y eliminada `0016_guardian_invite_identity.sql`; el único `0016` es `0016_single_use_invites.sql` proveniente de `develop`.
+- La web conserva el contrato de `develop`: el token fija al alumno, una invitación usada en otro dispositivo devuelve `invite_already_used` y no se valida el nombre ingresado.
+- El header de “Mis rutas” queda fuera del `ScrollView` para permanecer fijo. El bundle web se regeneró con esbuild sin regenerar `config.js`.
+- QA del autor: 164/164 pruebas, TypeScript web/conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
+- Reversión: revertir este ajuste visual; la migración single-use pertenece a `develop` y no debe retirarse al revertir el PR visual.

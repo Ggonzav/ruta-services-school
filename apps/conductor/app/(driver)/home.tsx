@@ -121,8 +121,12 @@ export default function HomeScreen() {
 
   return (
     <Screen style={{ gap: 0 }}>
-      <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
       <DriverHeader />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: 16, paddingTop: 16, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
       <View>
         <Text style={[typography.display, { fontSize: 30 }]}>Mis rutas</Text>
         <Text style={typography.small}>{route.vehicleNickname}</Text>
