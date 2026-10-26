@@ -115,7 +115,7 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
   - **Resuelto en `develop` (#19):** `0016_single_use_invites.sql` hace que cada invitación sea de un solo uso para un apoderado, mantiene la reapertura idempotente en el mismo dispositivo y reduce la caducidad predeterminada a 30 días. El alumno lo fija el token; el nombre no se valida contra `student_profiles`.
 
 - **Otros caveats conocidos:**
-  - **≈ Estado del push y migraciones en Supabase remoto no confirmado.** Según la última verificación del usuario, la base remota tenía aplicadas hasta `0014`; **`0015` queda pendiente** de `supabase db push`. Sin aplicar, la tarjeta de conductor falla en vivo.
+  - **Migraciones remotas confirmadas hasta `0016`.** `0015_driver_card.sql` y `0016_single_use_invites.sql` están aplicadas en el proyecto enlazado. La activación operativa del envío push continúa separada de la aplicación de migraciones.
   - **Foto del conductor**: solo URL, sin subida real (Storage) ni políticas de bucket.
   - **Doble fuente de dirección/coordenadas**: `route_stops` (operación) y `student_profiles` (0014, contacto administrativo) — conviene definir cuál es la fuente maestra.
   - **Entrega push "al menos una vez"** (puede repetir); el ETA es acotado al **destino elegido**, no a toda la ruta.
@@ -131,12 +131,11 @@ docs/                   ARQUITECTURA/ARCHITECTURE, DEPLOY, PUSH, SECURITY_REVIEW
 - **Ida/Vuelta vs AM/PM**: la base usa el enum `route_kind` **AM/PM**; el cambio a "Ida/Vuelta" es **solo de etiqueta**, sin tocar migraciones ni contratos (✔ así está en el PR #17).
 
 **Próximos pasos recomendados:**
-1. Aplicar `0015` y `0016_single_use_invites.sql` en Supabase (`supabase db push`) y confirmar con `supabase migration list`.
-2. Cerrar el PR #17: probar visualmente en iPhone y completar la revisión independiente.
-3. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
-4. Etapas 4–5 del conductor: mapa nativo y cámara/foto a Storage; luego alinear la web del apoderado al navy.
-5. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
-6. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
+1. Cerrar el PR #17: probar visualmente en iPhone y completar la revisión independiente.
+2. Prueba en iPhone del push con página cerrada (AM/PM, dos alumnos, baja de uno) y aislamiento entre apoderados.
+3. Etapas 4–5 del conductor: mapa nativo y cámara/foto a Storage; luego alinear la web del apoderado al navy.
+4. Definir fuente maestra de dirección/coordenadas (`route_stops` vs `student_profiles`).
+5. Promoción `develop → main` (producción) cuando la prueba en dispositivo esté OK.
 
 ---
 

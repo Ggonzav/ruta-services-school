@@ -122,4 +122,5 @@ Registrar cambios comprobables. No reconstruir entregas históricas sin evidenci
 - La web conserva el contrato de `develop`: el token fija al alumno, una invitación usada en otro dispositivo devuelve `invite_already_used` y no se valida el nombre ingresado.
 - El header de “Mis rutas” queda fuera del `ScrollView` para permanecer fijo. El bundle web se regeneró con esbuild sin regenerar `config.js`.
 - QA del autor: 164/164 pruebas, TypeScript web/conductor y `git diff --check` aprobados. Pendientes revisión independiente y prueba visual en iPhone.
+- Operación autorizada: `migration list` confirmó `0015` aplicada; el dry-run incluyó únicamente `0016_single_use_invites.sql`, `db push` la aplicó y la verificación final mostró local/remoto alineados de `0001` a `0016`. Sin seeds ni reset.
 - Reversión: revertir este ajuste visual; la migración single-use pertenece a `develop` y no debe retirarse al revertir el PR visual.
