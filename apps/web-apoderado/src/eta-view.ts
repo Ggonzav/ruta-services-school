@@ -1,7 +1,8 @@
 // ============================================================================
 // Lógica pura de la web del apoderado: cómo leer un ETA en pantalla y cómo
 // convertir la lista cruda de trip_events en la línea de tiempo de la
-// pantalla 8 ("Recorrido iniciado" → "Furgón cerca" → "Subió" → "Llegó").
+// pantalla 8. Ida distingue subida y llegada al colegio; en Vuelta, bajar
+// del furgón ya significa llegar a casa y se muestra como un solo estado.
 //
 // Sin DOM, sin Supabase acá: src/app.ts sólo llama estas funciones y pinta
 // el resultado. Así se puede testear con Vitest en Node sin un navegador.
@@ -21,8 +22,9 @@ export interface TimelineStep {
 }
 
 /**
- * Arma las 4 filas fijas de la línea de tiempo para UN alumno, a partir de
- * los eventos que RLS ya filtró (generales del trip + los de ese alumno).
+ * Arma la línea de tiempo para UN alumno, a partir de los eventos que RLS ya
+ * filtró (generales del trip + los de ese alumno). Ida tiene cuatro etapas;
+ * Vuelta tiene tres porque `dropped_off` significa a la vez bajar y llegar.
  * "boarded" usa 'picked_up' o 'skipped' — cualquiera de los dos cierra esa
  * etapa (si no viaja, no tiene sentido seguir esperando que "suba").
  */
@@ -43,27 +45,42 @@ export function buildTimeline(
   const boardedIsSkip = boarded?.kind === 'skipped';
   const arrived = boardedIsSkip ? undefined : isToSchool ? find('finished', false) : find('finished', false) ?? droppedOff;
 
-  return [
+  const initialSteps: TimelineStep[] = [
     { key: 'started', label: 'Recorrido iniciado', done: !!started, time: timeOf(started) },
     {
       key: 'approaching',
-      label: isToSchool ? 'Furgón cerca de tu casa' : 'Tu hijo está llegando a casa',
+      label: isToSchool ? 'El furgón está cerca de tu casa' : `${studentFirstName} está llegando a casa`,
       done: !!approaching,
       time: timeOf(approaching),
     },
+  ];
+
+  if (!isToSchool) {
+    const homeEvent = boardedIsSkip ? boarded : droppedOff;
+    return [
+      ...initialSteps,
+      {
+        key: 'arrived',
+        label: boardedIsSkip ? `${studentFirstName} no viajó hoy` : `${studentFirstName} llegó a casa`,
+        done: !!homeEvent,
+        time: timeOf(homeEvent),
+      },
+    ];
+  }
+
+  return [
+    ...initialSteps,
     {
       key: 'boarded',
       label: boardedIsSkip
         ? `${studentFirstName} no viajó hoy`
-        : isToSchool
-          ? `${studentFirstName} subió al furgón`
-          : `${studentFirstName} bajó del furgón`,
+        : `${studentFirstName} subió al furgón`,
       done: !!boarded,
       time: timeOf(boarded),
     },
     {
       key: 'arrived',
-      label: isToSchool ? `${studentFirstName} llegó al colegio` : `${studentFirstName} llegó a casa`,
+      label: `${studentFirstName} llegó al colegio`,
       done: !!arrived,
       time: timeOf(arrived),
     },

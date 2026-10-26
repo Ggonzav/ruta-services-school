@@ -54,6 +54,31 @@ describe('buildTimeline', () => {
     expect(boarded.time).toBe('07:43');
   });
 
+  it('vuelta muestra una sola llegada y no duplica bajó/llegó', () => {
+    const events: TripEventRow[] = [
+      { kind: 'started', student_id: null, created_at: '2026-01-01T16:00:00' },
+      { kind: 'approaching', student_id: 'martina', created_at: '2026-01-01T16:32:00' },
+      { kind: 'dropped_off', student_id: 'martina', created_at: '2026-01-01T16:38:00' },
+    ];
+    const steps = buildTimeline(events, 'martina', 'Martina', 'to_home');
+    expect(steps.map((step) => step.label)).toEqual([
+      'Recorrido iniciado',
+      'Martina está llegando a casa',
+      'Martina llegó a casa',
+    ]);
+    expect(steps.map((step) => step.done)).toEqual([true, true, true]);
+    expect(steps[steps.length - 1]?.time).toBe('16:38');
+  });
+
+  it('vuelta termina en no viajó sin mostrar una llegada adicional', () => {
+    const events: TripEventRow[] = [
+      { kind: 'skipped', student_id: 'martina', created_at: '2026-01-01T16:10:00' },
+    ];
+    const steps = buildTimeline(events, 'martina', 'Martina', 'to_home');
+    expect(steps).toHaveLength(3);
+    expect(steps[2]).toMatchObject({ label: 'Martina no viajó hoy', done: true });
+  });
+
   it('si el alumno no viajó (skipped), el label lo dice y no marca llegada por el cierre general', () => {
     const events: TripEventRow[] = [
       { kind: 'skipped', student_id: 'martina', created_at: '2026-01-01T07:20:00' },

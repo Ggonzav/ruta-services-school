@@ -12,6 +12,7 @@ import { buildTimeline, boardingStatus, boardingStatusLabel, formatEtaMinutes, i
 import { loadRedeemedStudents, saveRedeemedStudent, type RedeemedStudent } from './local-students';
 import { enablePush, disablePush } from './push';
 import { parseInviteToken } from './router';
+import { remainingRoutePoints, type MapPoint } from './map-route';
 import { fetchTripSnapshot, type TripMapSnapshot, type TripSnapshot } from './trip-data';
 import { tripClock } from '../../../shared/trip-clock';
 import { kindForDirection, type RouteKind } from '../../../shared/rutasegura-api';
@@ -288,23 +289,30 @@ async function paintMap(map: TripMapSnapshot | null, mode: ViewMode) {
     }).addTo(leafletMap);
     L.control.attribution({ prefix: false }).addTo(leafletMap);
   }
-  const stopLatLng = [map.stop.lat, map.stop.lng];
-  const schoolLatLng = [map.school.lat, map.school.lng];
-  const vehicleLatLng = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
+  const stopLatLng: MapPoint = [map.stop.lat, map.stop.lng];
+  const schoolLatLng: MapPoint = [map.school.lat, map.school.lng];
+  const vehicleLatLng: MapPoint | null = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
   stopMarker ?? (stopMarker = L.marker(stopLatLng, { icon: mapIcon("\u{1F3E0}") }).addTo(leafletMap));
-  schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
   stopMarker.setLatLng(stopLatLng).bindPopup(`Casa: ${escapeHtml(map.stop.address)}`);
-  schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
+  if (mode === "next") {
+    schoolMarker?.remove();
+    schoolMarker = null;
+  } else {
+    schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
+    schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
+  }
   if (vehicleLatLng) {
     vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
     vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle!.updatedAt)}`);
   }
   if (!vehicleLatLng && vehicleMarker) { vehicleMarker.remove(); vehicleMarker = null; }
+  let visibleRoutePoints: MapPoint[] | null = null;
   if (mode === "next" && vehicleLatLng) {
-    const originLatLng = vehicleLatLng ?? stopLatLng;
+    const originLatLng = vehicleLatLng;
     const routePoints = await getRoutePoints(originLatLng, stopLatLng);
     if (version !== mapVersion) return;
-    const linePoints = routePoints ?? [originLatLng, stopLatLng];
+    const linePoints = remainingRoutePoints(routePoints ?? [], originLatLng, stopLatLng);
+    visibleRoutePoints = linePoints;
     if (!routeLine) {
       routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
     } else {
@@ -314,7 +322,8 @@ async function paintMap(map: TripMapSnapshot | null, mode: ViewMode) {
     routeLine.remove();
     routeLine = null;
   }
-  const framePoints = vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng];
+  const framePoints = visibleRoutePoints
+    ?? (vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng]);
   const bounds = L.latLngBounds(framePoints);
   leafletMap.fitBounds(bounds.pad(0.25), { animate: false, maxZoom: 16 });
   setMapFooter(map);

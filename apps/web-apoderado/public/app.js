@@ -20770,23 +20770,38 @@ function buildTimeline(events, studentId, studentFirstName, direction = "to_scho
   const droppedOff = find("dropped_off", true);
   const boardedIsSkip = boarded?.kind === "skipped";
   const arrived = boardedIsSkip ? void 0 : isToSchool ? find("finished", false) : find("finished", false) ?? droppedOff;
-  return [
+  const initialSteps = [
     { key: "started", label: "Recorrido iniciado", done: !!started, time: timeOf(started) },
     {
       key: "approaching",
-      label: isToSchool ? "Furg\xF3n cerca de tu casa" : "Tu hijo est\xE1 llegando a casa",
+      label: isToSchool ? "El furg\xF3n est\xE1 cerca de tu casa" : `${studentFirstName} est\xE1 llegando a casa`,
       done: !!approaching,
       time: timeOf(approaching)
-    },
+    }
+  ];
+  if (!isToSchool) {
+    const homeEvent = boardedIsSkip ? boarded : droppedOff;
+    return [
+      ...initialSteps,
+      {
+        key: "arrived",
+        label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : `${studentFirstName} lleg\xF3 a casa`,
+        done: !!homeEvent,
+        time: timeOf(homeEvent)
+      }
+    ];
+  }
+  return [
+    ...initialSteps,
     {
       key: "boarded",
-      label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : isToSchool ? `${studentFirstName} subi\xF3 al furg\xF3n` : `${studentFirstName} baj\xF3 del furg\xF3n`,
+      label: boardedIsSkip ? `${studentFirstName} no viaj\xF3 hoy` : `${studentFirstName} subi\xF3 al furg\xF3n`,
       done: !!boarded,
       time: timeOf(boarded)
     },
     {
       key: "arrived",
-      label: isToSchool ? `${studentFirstName} lleg\xF3 al colegio` : `${studentFirstName} lleg\xF3 a casa`,
+      label: `${studentFirstName} lleg\xF3 al colegio`,
       done: !!arrived,
       time: timeOf(arrived)
     }
@@ -20898,6 +20913,30 @@ var INVITE_PATH = /^\/i\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 function parseInviteToken(pathname) {
   const match = pathname.match(INVITE_PATH);
   return match ? match[1] : null;
+}
+
+// src/map-route.ts
+function remainingRoutePoints(geometry, vehicle, destination) {
+  const valid = geometry.filter(isFinitePoint);
+  if (valid.length === 0) return [vehicle, destination];
+  let closestIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  valid.forEach((point, index) => {
+    const distance = squaredDistance(point, vehicle);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+  const remaining = [vehicle, ...valid.slice(closestIndex + 1)];
+  if (squaredDistance(remaining[remaining.length - 1], destination) > 1e-12) remaining.push(destination);
+  return remaining;
+}
+function isFinitePoint(point) {
+  return Number.isFinite(point[0]) && Number.isFinite(point[1]);
+}
+function squaredDistance(a, b) {
+  return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
 }
 
 // ../../shared/trip-clock.ts
@@ -21213,9 +21252,14 @@ async function paintMap(map, mode) {
   const schoolLatLng = [map.school.lat, map.school.lng];
   const vehicleLatLng = map.vehicle ? [map.vehicle.lat, map.vehicle.lng] : null;
   stopMarker ?? (stopMarker = L.marker(stopLatLng, { icon: mapIcon("\u{1F3E0}") }).addTo(leafletMap));
-  schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
   stopMarker.setLatLng(stopLatLng).bindPopup(`Casa: ${escapeHtml(map.stop.address)}`);
-  schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
+  if (mode === "next") {
+    schoolMarker?.remove();
+    schoolMarker = null;
+  } else {
+    schoolMarker ?? (schoolMarker = L.marker(schoolLatLng, { icon: mapIcon("\u{1F3EB}") }).addTo(leafletMap));
+    schoolMarker.setLatLng(schoolLatLng).bindPopup(`Colegio: ${escapeHtml(map.school.name)}`);
+  }
   if (vehicleLatLng) {
     vehicleMarker ?? (vehicleMarker = L.marker(vehicleLatLng, { icon: mapIcon("\u{1F68C}", "vehicle") }).addTo(leafletMap));
     vehicleMarker.setLatLng(vehicleLatLng).bindPopup(`Furg\xF3n \xB7 actualizado ${relativeTime(map.vehicle.updatedAt)}`);
@@ -21224,11 +21268,13 @@ async function paintMap(map, mode) {
     vehicleMarker.remove();
     vehicleMarker = null;
   }
+  let visibleRoutePoints = null;
   if (mode === "next" && vehicleLatLng) {
-    const originLatLng = vehicleLatLng ?? stopLatLng;
+    const originLatLng = vehicleLatLng;
     const routePoints = await getRoutePoints(originLatLng, stopLatLng);
     if (version5 !== mapVersion) return;
-    const linePoints = routePoints ?? [originLatLng, stopLatLng];
+    const linePoints = remainingRoutePoints(routePoints ?? [], originLatLng, stopLatLng);
+    visibleRoutePoints = linePoints;
     if (!routeLine) {
       routeLine = L.polyline(linePoints, { color: "#0b4f9f", weight: 6, opacity: 0.9, lineCap: "round" }).addTo(leafletMap);
     } else {
@@ -21238,7 +21284,7 @@ async function paintMap(map, mode) {
     routeLine.remove();
     routeLine = null;
   }
-  const framePoints = vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng];
+  const framePoints = visibleRoutePoints ?? (vehicleLatLng ? [stopLatLng, schoolLatLng, vehicleLatLng] : [stopLatLng, schoolLatLng]);
   const bounds = L.latLngBounds(framePoints);
   leafletMap.fitBounds(bounds.pad(0.25), { animate: false, maxZoom: 16 });
   setMapFooter(map);
