@@ -13,6 +13,10 @@ export interface Stop {
   seq: number;
   fullName: string;
   address: string;
+  /** Coordenadas de la parada (casa del alumno). Opcionales: sólo las usa el
+   *  mapa del recorrido; la lógica de orden/pendientes no depende de ellas. */
+  lat?: number;
+  lng?: number;
 }
 
 export type SettledKind = 'picked_up' | 'skipped' | 'dropped_off';
