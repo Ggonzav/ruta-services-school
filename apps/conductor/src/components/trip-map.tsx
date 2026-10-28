@@ -6,7 +6,7 @@ import { colors, radius } from '@/lib/theme';
 // Mapa del recorrido para el conductor. En vez de una dependencia nativa de
 // mapas (react-native-maps + llaves de Google/Apple), reutilizamos el mismo
 // enfoque que la web del apoderado: Leaflet dentro de un WebView, con tiles
-// CARTO gratis (sin token). Muestra el furgón (posición del conductor), la
+// estándar de OpenStreetMap (sin token). Muestra el furgón (posición del conductor), la
 // parada destino (casa del alumno elegido) y el colegio.
 //
 // El HTML se carga una sola vez; cada cambio de coordenadas se empuja con
@@ -30,13 +30,13 @@ export interface TripMapProps {
   height?: number;
 }
 
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 function buildHtml(): string {
   return `<!doctype html><html><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src data: https://*.basemaps.cartocdn.com" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src data: https://tile.openstreetmap.org" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #map { margin: 0; height: 100%; width: 100%; background: ${colors.bg}; }
@@ -65,7 +65,7 @@ function buildHtml(): string {
       if (tileErrors === 3) notify('error');
     })
     .addTo(map);
-  L.control.attribution({ prefix: false }).addTo(map).addAttribution('© OpenStreetMap © CARTO');
+  L.control.attribution({ prefix: false }).addTo(map).addAttribution('© OpenStreetMap');
   map.setView([-33.45, -70.66], 12); // Santiago por defecto, hasta tener GPS
 
   var markers = {};
@@ -93,7 +93,8 @@ function buildHtml(): string {
         markers.others.push(m);
       });
       var pts = [];
-      ['me','target','school'].forEach(function (k) { if (data[k]) pts.push([data[k].lat, data[k].lng]); });
+      ['me','target'].forEach(function (k) { if (data[k]) pts.push([data[k].lat, data[k].lng]); });
+      if (pts.length === 0 && data.school) pts.push([data.school.lat, data.school.lng]);
       if (pts.length === 1) { map.setView(pts[0], 15); }
       else if (pts.length > 1) { map.fitBounds(pts, { padding: [40,40], maxZoom: 16 }); }
     } catch (e) { notify('error'); }

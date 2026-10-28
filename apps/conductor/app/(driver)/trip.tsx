@@ -212,7 +212,7 @@ export default function TripScreen() {
         </View>
       </View>
 
-      <TripMap me={me} target={targetLatLng} school={school} others={otherPins} />
+      <TripMap me={me} target={targetLatLng} school={isToSchool ? school : null} others={otherPins} />
 
       {current ? (
         <>
