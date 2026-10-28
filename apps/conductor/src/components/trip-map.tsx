@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text } from 'react-native';
+import { Pressable, View, Text } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { colors, radius } from '@/lib/theme';
 
@@ -36,6 +36,7 @@ function buildHtml(): string {
   return `<!doctype html><html><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src data: https://*.basemaps.cartocdn.com" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #map { margin: 0; height: 100%; width: 100%; background: ${colors.bg}; }
@@ -49,8 +50,21 @@ function buildHtml(): string {
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+  function notify(message) {
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(message);
+  }
+
+  if (!window.L) {
+    notify('error');
+  } else {
   var map = L.map('map', { zoomControl: false, attributionControl: false });
-  L.tileLayer('${TILE_URL}', { maxZoom: 19 }).addTo(map);
+  var tileErrors = 0;
+  L.tileLayer('${TILE_URL}', { maxZoom: 19 })
+    .on('tileerror', function () {
+      tileErrors += 1;
+      if (tileErrors === 3) notify('error');
+    })
+    .addTo(map);
   L.control.attribution({ prefix: false }).addTo(map).addAttribution('© OpenStreetMap © CARTO');
   map.setView([-33.45, -70.66], 12); // Santiago por defecto, hasta tener GPS
 
@@ -82,9 +96,10 @@ function buildHtml(): string {
       ['me','target','school'].forEach(function (k) { if (data[k]) pts.push([data[k].lat, data[k].lng]); });
       if (pts.length === 1) { map.setView(pts[0], 15); }
       else if (pts.length > 1) { map.fitBounds(pts, { padding: [40,40], maxZoom: 16 }); }
-    } catch (e) { /* no-op */ }
+    } catch (e) { notify('error'); }
   };
-  if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('ready');
+  notify('ready');
+  }
 </script>
 </body></html>`;
 }
@@ -92,6 +107,8 @@ function buildHtml(): string {
 export function TripMap({ me, target, school, others = [], height = 200 }: TripMapProps) {
   const ref = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   const payload = JSON.stringify({ me, target, school, others });
   // Empuja las coordenadas al mapa cuando ya cargó o cuando cambian.
@@ -100,27 +117,68 @@ export function TripMap({ me, target, school, others = [], height = 200 }: TripM
   }, [ready, payload]);
 
   function onMessage(e: WebViewMessageEvent) {
-    if (e.nativeEvent.data === 'ready') setReady(true);
+    if (e.nativeEvent.data === 'ready') {
+      setFailed(false);
+      setReady(true);
+    }
+    if (e.nativeEvent.data === 'error') setFailed(true);
+  }
+
+  function retry() {
+    setReady(false);
+    setFailed(false);
+    setAttempt((value) => value + 1);
   }
 
   return (
     <View style={{ height, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.bg }}>
-      <WebView
-        ref={ref}
-        originWhitelist={['*']}
-        source={{ html: buildHtml() }}
-        onMessage={onMessage}
-        javaScriptEnabled
-        domStorageEnabled
-        scrollEnabled={false}
-        startInLoadingState
-        renderLoading={() => (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.textMuted, fontSize: 13 }}>Cargando mapa…</Text>
-          </View>
-        )}
-        style={{ backgroundColor: colors.bg }}
-      />
+      {failed ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' }}>
+            Mapa no disponible. Comprueba tu conexión.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reintentar cargar el mapa"
+            onPress={retry}
+            style={({ pressed }) => ({
+              borderRadius: radius.pill,
+              backgroundColor: colors.navy,
+              paddingHorizontal: 16,
+              paddingVertical: 9,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Reintentar</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <WebView
+          key={attempt}
+          ref={ref}
+          originWhitelist={['about:blank']}
+          source={{ html: buildHtml() }}
+          onMessage={onMessage}
+          onError={() => setFailed(true)}
+          onHttpError={() => setFailed(true)}
+          onShouldStartLoadWithRequest={(request) => request.url === 'about:blank'}
+          javaScriptEnabled
+          domStorageEnabled={false}
+          allowFileAccess={false}
+          allowUniversalAccessFromFileURLs={false}
+          javaScriptCanOpenWindowsAutomatically={false}
+          setSupportMultipleWindows={false}
+          mixedContentMode="never"
+          scrollEnabled={false}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Cargando mapa…</Text>
+            </View>
+          )}
+          style={{ backgroundColor: colors.bg }}
+        />
+      )}
     </View>
   );
 }
