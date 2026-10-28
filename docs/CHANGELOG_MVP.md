@@ -2,6 +2,16 @@
 
 Registrar cambios comprobables. No reconstruir entregas históricas sin evidencia.
 
+## 2026-10-28 — Mapa del recorrido y recuperación ante fallos (en revisión)
+
+- El mapa de la etapa 4, incorporado en `develop` por el PR #25, muestra el furgón, el destino actual y las demás paradas pendientes mediante Leaflet dentro de un WebView. El colegio sólo aparece cuando pasa a ser el destino operativo al terminar las recogidas de Ida.
+- El WebView limita la navegación al documento local, desactiva accesos y ventanas innecesarias y exige contenido HTTPS.
+- Si Leaflet o los tiles no cargan, la pantalla informa que el mapa no está disponible y permite reintentar; el recorrido y sus acciones siguen visibles fuera del mapa.
+- Sustituye los tiles CARTO, que mostraban “MAP KEY REQUIRED”, por Mapbox Streets cuando existe `EXPO_PUBLIC_MAPBOX_TOKEN`. Sólo acepta tokens públicos `pk.*`; no añade llamadas a Directions.
+- Sin token válido o tras tres fallos de tiles Mapbox cambia a OpenStreetMap. Ambos proveedores muestran su atribución; Mapbox incluye logo y enlaces requeridos. El WebView identifica la app y no precarga tiles.
+- Sin cambios en backend, RLS, RPC, migraciones ni ubicación en segundo plano. Requiere conexión para descargar Leaflet y los tiles.
+- QA automatizado del autor y prueba visual en dispositivo pendientes de actualizar después de estos ajustes. Revisión independiente pendiente antes de integrar.
+
 ## 2026-10-26 — Lista de alumnos sin acciones falsas (en revisión)
 
 - “Mis rutas” elimina el chevron `>` de cada alumno porque la fila es informativa y no abre una pantalla.

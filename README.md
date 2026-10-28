@@ -65,6 +65,7 @@ default).
 cd apps/conductor
 npm install
 # Completa expo.extra.supabaseUrl / supabaseAnonKey / webBaseUrl en app.json
+# Opcional: copia .env.example a .env.local y configura EXPO_PUBLIC_MAPBOX_TOKEN=pk...
 npx expo start
 ```
 

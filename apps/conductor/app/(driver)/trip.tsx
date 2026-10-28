@@ -130,6 +130,7 @@ export default function TripScreen() {
   const targetLatLng =
     current && hasCoords(current) ? { lat: current.lat, lng: current.lng, label: current.fullName } : null;
   const otherPins: LatLng[] = others.filter(hasCoords).map((s) => ({ lat: s.lat, lng: s.lng }));
+  const operationalSchool = isToSchool && pending.length === 0 ? school : null;
 
   function showToast(message: string) {
     setToast(message);
@@ -212,7 +213,7 @@ export default function TripScreen() {
         </View>
       </View>
 
-      <TripMap me={me} target={targetLatLng} school={school} others={otherPins} />
+      <TripMap me={me} target={targetLatLng} school={operationalSchool} others={otherPins} />
 
       {current ? (
         <>
