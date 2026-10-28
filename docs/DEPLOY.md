@@ -59,6 +59,25 @@ El build ejecuta `scripts/build-config.mjs` y genera `public/config.js` con `map
 
 Sin Mapbox, la web usa mapa base libre y línea recta como fallback.
 
+La app del conductor usa una variable independiente porque Expo incorpora el
+valor al bundle móvil:
+
+```text
+EXPO_PUBLIC_MAPBOX_TOKEN=pk...
+```
+
+Configúrala en `apps/conductor/.env.local` para desarrollo o como variable
+plaintext del entorno EAS para builds. Debe ser un token público separado para
+la app, con el alcance mínimo `styles:tiles`. No uses el token secreto del
+backend. Las restricciones por URL requieren `Referer` y no son compatibles con
+clientes móviles; un token restringido sólo a `rutasegura.pages.dev` devolverá
+403 desde el WebView. Controla el uso y rota este token por separado.
+
+Sin token válido, o si Mapbox falla, el conductor cambia a los tiles estándar
+de OpenStreetMap. Este respaldo es best-effort, sin SLA, y no debe usarse para
+descarga offline ni precarga. El WebView conserva caché, atribución visible y
+una identificación estable de RutaSegura.
+
 La seguridad de datos no depende de esconder el anon key. Depende de RLS y de las RPC/Edge Functions que validan ownership.
 
 ## Actualizar la app conductor
@@ -71,6 +90,9 @@ node scripts/set-web-base-url.mjs https://TU-SITIO.pages.dev
 ```
 
 Luego recompila/reinstala la app conductor desde Xcode para que tome el nuevo `webBaseUrl`.
+
+Al cambiar `EXPO_PUBLIC_MAPBOX_TOKEN`, reinicia Metro y realiza una recarga
+completa del dev build para que Expo incorpore el nuevo valor.
 
 No dejes `webBaseUrl` apuntando a `localhost` ni a `trycloudflare.com` para una demo con apoderados.
 
