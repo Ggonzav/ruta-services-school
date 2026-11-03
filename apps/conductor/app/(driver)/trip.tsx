@@ -5,7 +5,8 @@ import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { finishTrip, markStop, setTarget, getTarget } from '@/lib/tripApi';
 import { stopSharingLocation, refreshLocation, locationStatus } from '@/lib/backgroundLocation';
-import { tripProgress, type Stop } from '@/lib/tripLogic';
+import { tripProgress, type SettledKind, type Stop } from '@/lib/tripLogic';
+import { buildTripMapStops } from '@/lib/tripMapMarkers';
 import { colors, radius, typography } from '@/lib/theme';
 import { directionForKind, type RouteDirection, type RouteKind } from '../../../../shared/rutasegura-api';
 import { Avatar, Badge, Button, Card, Eyebrow, Loading, Screen, Snackbar, Spacer } from '@/components/ui';
@@ -20,7 +21,7 @@ export default function TripScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const [gps, setGps] = useState(() => locationStatus(tripId));
   const [stops, setStops] = useState<Stop[]>([]);
-  const [settled, setSettled] = useState<Set<string>>(new Set());
+  const [eventsByStudent, setEventsByStudent] = useState<Map<string, SettledKind>>(new Map());
   const [direction, setDirection] = useState<RouteDirection>('to_school');
   const [targetId, setTargetId] = useState<string | null>(null);
   const [school, setSchool] = useState<LatLng | null>(null);
@@ -55,7 +56,8 @@ export default function TripScreen() {
       .from('trip_events')
       .select('student_id, kind')
       .eq('trip_id', tripId)
-      .in('kind', ['picked_up', 'skipped', 'dropped_off']);
+      .in('kind', ['picked_up', 'skipped', 'dropped_off'])
+      .order('created_at', { ascending: true });
 
     setStops(
       (stopsRows ?? []).map((r: any) => ({
@@ -67,7 +69,7 @@ export default function TripScreen() {
         lng: r.lng ?? undefined,
       }))
     );
-    setSettled(new Set((events ?? []).map((e) => e.student_id as string)));
+    setEventsByStudent(new Map((events ?? []).map((event) => [event.student_id as string, event.kind as SettledKind])));
     setLoading(false);
   }, [tripId]);
 
@@ -119,17 +121,15 @@ export default function TripScreen() {
   }, []));
 
   const isToSchool = direction === 'to_school';
-  const progress = tripProgress(stops, settled);
+  const settledIds = new Set(eventsByStudent.keys());
+  const progress = tripProgress(stops, settledIds);
   const currentStep = progress.total > 0 ? Math.min(progress.done + 1, progress.total) : 0;
   const nextStep = currentStep < progress.total ? currentStep + 1 : null;
-  const pending = stops.filter((s) => !settled.has(s.studentId)).sort((a, b) => a.seq - b.seq);
+  const pending = stops.filter((s) => !settledIds.has(s.studentId)).sort((a, b) => a.seq - b.seq);
   const current = targetId ? pending.find((s) => s.studentId === targetId) ?? null : null;
   const others = pending.filter((s) => s.studentId !== current?.studentId);
 
-  const hasCoords = (s: Stop): s is Stop & { lat: number; lng: number } => s.lat != null && s.lng != null;
-  const targetLatLng =
-    current && hasCoords(current) ? { lat: current.lat, lng: current.lng, label: current.fullName } : null;
-  const otherPins: LatLng[] = others.filter(hasCoords).map((s) => ({ lat: s.lat, lng: s.lng }));
+  const mapStops = buildTripMapStops(stops, eventsByStudent, targetId);
   const operationalSchool = isToSchool && pending.length === 0 ? school : null;
 
   function showToast(message: string) {
@@ -155,8 +155,8 @@ export default function TripScreen() {
     const stop = current;
     setActing(true);
     try {
-      await markStop(tripId, stop.studentId, action);
-      setSettled((prev) => new Set(prev).add(stop.studentId));
+      const result = await markStop(tripId, stop.studentId, action);
+      setEventsByStudent((previous) => new Map(previous).set(stop.studentId, result.event));
       setTargetId(null); // el trigger ya lo limpió en el servidor
       const verb = action === 'absent' ? 'No viaja' : isToSchool ? 'Subió' : 'Bajó';
       showToast(`${stop.fullName} · ${verb}`);
@@ -213,7 +213,7 @@ export default function TripScreen() {
         </View>
       </View>
 
-      <TripMap me={me} target={targetLatLng} school={operationalSchool} others={otherPins} />
+      <TripMap me={me} school={operationalSchool} stops={mapStops} />
 
       {current ? (
         <>

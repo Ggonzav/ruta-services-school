@@ -2,6 +2,15 @@
 
 Registrar cambios comprobables. No reconstruir entregas históricas sin evidencia.
 
+## 2026-10-31 — Identidad visual y marcadores del conductor (en revisión)
+
+- La app del conductor adopta el ícono aprobado: pin amarillo con furgón navy, sin texto. Se configura para Expo, iOS, Android adaptativo, splash y favicon; el PNG principal es cuadrado, opaco y conserva margen seguro.
+- El mapa reemplaza emojis por SVG inline locales: furgón con la misma marca, colegio morado, próxima parada naranja, pendientes azules, completadas verdes con check y omitidas grises.
+- Cada parada conserva su `seq` original. Los estados se derivan únicamente de eventos existentes: `picked_up`/`dropped_off` como completada y `skipped` como omitida. No se agregan estados persistidos ni contratos.
+- Al tocar un marcador Leaflet muestra un único popup con número, alumno, dirección y estado. El encuadre continúa usando furgón y destino operativo; el colegio sólo se envía cuando ya es el destino.
+- Sin cambios en GPS, Mapbox, backend, RLS, RPC, migraciones ni vista del apoderado. QA y prueba visual en dispositivo se registrarán antes de integrar.
+- Reversión: restaurar `app.json`, el AppIcon anterior y los componentes/helpers del mapa; no hay datos ni configuración remota que revertir.
+
 ## 2026-10-28 — Mapa del recorrido y recuperación ante fallos (en revisión)
 
 - El mapa de la etapa 4, incorporado en `develop` por el PR #25, muestra el furgón, el destino actual y las demás paradas pendientes mediante Leaflet dentro de un WebView. El colegio sólo aparece cuando pasa a ser el destino operativo al terminar las recogidas de Ida.
