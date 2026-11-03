@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="RutaSegura">
+  <!-- Zona segura del adaptive icon: Android puede aplicar máscaras circulares o redondeadas. -->
+  <g transform="translate(154 154) scale(.7)">
+    <path fill="#ffb703" d="M512 116c-172 0-312 140-312 312 0 219 312 480 312 480s312-261 312-480c0-172-140-312-312-312Z"/>
+    <rect x="278" y="286" width="468" height="294" rx="70" fill="#1b2a5b"/>
+    <rect x="338" y="348" width="126" height="90" rx="22" fill="#ffb703"/>
+    <rect x="560" y="348" width="126" height="90" rx="22" fill="#ffb703"/>
+    <circle cx="376" cy="590" r="49" fill="#1b2a5b"/>
+    <circle cx="648" cy="590" r="49" fill="#1b2a5b"/>
+  </g>
+</svg>
